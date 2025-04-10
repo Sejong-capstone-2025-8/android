@@ -1,61 +1,58 @@
 package com.toprunner.imagestory
 
 import android.Manifest
-import android.content.Intent
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.appcompat.app.AlertDialog
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.toprunner.imagestory.controller.StoryCreationController
+import com.toprunner.imagestory.navigation.NavRoute
+import com.toprunner.imagestory.screens.*
+import com.toprunner.imagestory.ui.components.BottomNavBar
 import com.toprunner.imagestory.ui.theme.ImageStoryTheme
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
+    // 이미지 관련 상태
     private var capturedImageUri by mutableStateOf<Uri?>(null)
     private var capturedImageBitmap by mutableStateOf<Bitmap?>(null)
     private var selectedTheme by mutableStateOf<String?>(null)
-    private val storyCreationController by lazy { StoryCreationController(this) }
     private var isLoading by mutableStateOf(false)
 
-    // 카메라 권한 요청
+    // 컨트롤러
+    private val storyCreationController by lazy { StoryCreationController(this) }
+
+    // 권한 요청 런처들
     private val requestCameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -66,7 +63,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 저장소 권한 요청
     private val requestStoragePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -77,25 +73,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 카메라 실행 결과 처리
+    // 카메라 및 갤러리 런처들
     private val takePictureLauncher = registerForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
-        Log.d("CameraDebug", "Take picture result: $success")
         if (success && capturedImageUri != null) {
             try {
-                capturedImageBitmap = MediaStore.Images.Media.getBitmap(contentResolver, capturedImageUri)
-                Log.d("CameraDebug", "Image captured successfully")
+                // API 28 이상일 경우 ImageDecoder 사용
+                capturedImageBitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    val source = ImageDecoder.createSource(contentResolver, capturedImageUri!!)
+                    ImageDecoder.decodeBitmap(source)
+                } else {
+                    MediaStore.Images.Media.getBitmap(contentResolver, capturedImageUri)
+                }
+                Log.d("MainActivity", "Image captured successfully")
             } catch (e: Exception) {
-                Log.e("CameraDebug", "Error processing captured image: ${e.message}", e)
+                Log.e("MainActivity", "Error processing captured image: ${e.message}", e)
                 Toast.makeText(this, "이미지 처리 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
             }
-        } else {
-            Log.d("CameraDebug", "Image capture failed or cancelled")
         }
     }
 
-    // 갤러리에서 이미지 선택 결과 처리
+
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -112,37 +111,153 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        initializeDefaultData()
+
         setContent {
             ImageStoryTheme {
-                StoryApp(
-                    capturedImageBitmap = capturedImageBitmap,
-                    selectedTheme = selectedTheme,
-                    isLoading = isLoading,
-                    onTakePhotoClicked = { checkCameraPermissionAndOpenCamera() },
-                    onPickImageClicked = { checkStoragePermissionAndOpenGallery() },
-                    onThemeSelected = { theme -> selectedTheme = theme },
-                    onGenerateStoryClicked = { startStoryCreation() },
-                    onNavigationItemClicked = { screen -> navigateToScreen(screen) }
-                )
+                val navController = rememberNavController()
+
+                Scaffold(
+                    bottomBar = {
+                        BottomNavBar(navController = navController)
+                    }
+                ) { innerPadding ->
+                    // innerPadding: Scaffold에서 내려주는 기본 패딩
+                    // navigationBarsPadding(): 시스템 내비게이션 바 공간만큼 추가 패딩
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            //.navigationBarsPadding()
+                    ){NavHost(
+                        navController = navController,
+                        startDestination = NavRoute.Home.route,
+                        modifier = Modifier.fillMaxSize()
+
+                    ) {
+                        // 홈 화면
+                        composable(NavRoute.Home.route) {
+                            HomeScreen(
+                                capturedImageBitmap = capturedImageBitmap,
+                                selectedTheme = selectedTheme,
+                                isLoading = isLoading,
+                                onTakePhotoClicked = { checkCameraPermissionAndOpenCameraNonCompose() },
+                                onPickImageClicked = { checkStoragePermissionAndOpenGallery() },
+                                onThemeSelected = { theme -> selectedTheme = theme },
+                                onGenerateStoryClicked = { startStoryCreation(navController) }
+                            )
+                        }
+
+                        // 동화 리스트 화면
+                        composable(NavRoute.FairyTaleList.route) {
+                            FairyTaleListScreen(
+                                navController = navController
+                            )
+                        }
+
+                        // 목소리 리스트 화면
+                        composable(NavRoute.VoiceList.route) {
+                            VoiceListScreen(
+                                navController = navController,
+                                onRecordNewVoiceClicked = {
+                                    navController.navigate(NavRoute.VoiceRecording.route)
+                                }
+                            )
+                        }
+
+                        // 음악 리스트 화면
+                        composable(NavRoute.MusicList.route) {
+                            MusicListScreen(
+                                navController = navController
+                            )
+                        }
+
+                        // 설정 화면
+                        composable(NavRoute.Settings.route) {
+                            SettingsScreen(
+                                navController = navController,
+                                onLogoutClicked = {
+                                    // 로그아웃 로직
+                                    Toast.makeText(this@MainActivity, "로그아웃 되었습니다.", Toast.LENGTH_SHORT).show()
+                                    // 홈 화면으로 이동
+                                    navController.navigate(NavRoute.Home.route) {
+                                        popUpTo(NavRoute.Home.route) { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
+                        // 생성된 동화 화면
+                        composable(
+                            route = NavRoute.GeneratedStory.route,
+                            arguments = listOf(navArgument("storyId") { type = NavType.LongType })
+                        ) { backStackEntry ->
+                            val storyId = backStackEntry.arguments?.getLong("storyId") ?: -1
+                            if (storyId != -1L) {
+                                GeneratedStoryScreen(
+                                    storyId = storyId,
+                                    navController = navController
+                                )
+                            }
+                        }
+
+                        // 목소리 녹음 화면
+                        composable(NavRoute.VoiceRecording.route) {
+                            VoiceRecordingScreen(
+                                navController = navController
+                            )
+                        }
+                    }}
+
+                }
             }
         }
     }
 
-    private fun checkCameraPermissionAndOpenCamera() {
-        Log.d("CameraDebug", "Checking camera permission")
-        when {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
-                    PackageManager.PERMISSION_GRANTED -> {
-                Log.d("CameraDebug", "Camera permission granted, opening camera")
-                openCamera()
-            }
-            else -> {
-                Log.d("CameraDebug", "Requesting camera permission")
-                requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    // 앱 초기화 로직
+    private fun initializeDefaultData() {
+        lifecycleScope.launch {
+            try {
+                // 데이터베이스 초기화, 기본 음성/음악 데이터 로딩 등
+                Log.d("MainActivity", "Initializing default data")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error initializing default data: ${e.message}", e)
             }
         }
     }
 
+
+    // 일반 함수로 작성 – Compose와 분리 (비-Composable)
+    private fun checkCameraPermissionAndOpenCameraNonCompose() {
+        val permission = Manifest.permission.CAMERA
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            openCamera()
+        } else {
+            // 권한 요청 전에 사용자가 이미 거부한 적이 있으면 rationale 표시
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
+                // 전통적인 AlertDialog.Builder 사용 (Compose 외부이므로 문제 없음)
+                AlertDialog.Builder(this)
+                    .setTitle("카메라 권한 필요")
+                    .setMessage("사진 촬영을 위해 카메라 권한이 필요합니다. 권한을 허용하시겠습니까?")
+                    .setPositiveButton("허용") { dialog, _ ->
+                        requestCameraPermissionLauncher.launch(permission)
+                    }
+                    .setNegativeButton("취소") { dialog, _ ->
+                        Toast.makeText(this, "카메라 사용 권한이 거부되었습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    .show()
+            } else {
+                // 권한 요청 (첫 요청 또는 rationale 표시가 필요 없는 경우)
+                requestCameraPermissionLauncher.launch(permission)
+            }
+        }
+    }
+
+
+
+
+    // 권한 체크 및 갤러리 실행
     private fun checkStoragePermissionAndOpenGallery() {
         val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_IMAGES
@@ -161,510 +276,79 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // 카메라 실행
     private fun openCamera() {
         try {
             val photoFile = createImageFile()
-            photoFile?.let {
+            if (photoFile != null) {
                 capturedImageUri = FileProvider.getUriForFile(
                     this,
                     "${applicationContext.packageName}.provider",
-                    it
+                    photoFile
                 )
-
-                Log.d("CameraDebug", "Camera URI: $capturedImageUri")
-
-                val currentUri = capturedImageUri
-                if (currentUri != null) {
-                    takePictureLauncher.launch(currentUri)
-                } else {
+                capturedImageUri?.let { uri ->
+                    takePictureLauncher.launch(uri)
+                } ?: run {
                     Toast.makeText(this, "이미지 URI가 없습니다.", Toast.LENGTH_SHORT).show()
                 }
-            } ?: run {
+            } else {
                 Toast.makeText(this, "임시 파일을 생성할 수 없습니다.", Toast.LENGTH_SHORT).show()
-                Log.e("CameraDebug", "Failed to create temp file")
             }
         } catch (e: Exception) {
             Toast.makeText(this, "카메라를 열 수 없습니다: ${e.message}", Toast.LENGTH_SHORT).show()
-            Log.e("CameraDebug", "Camera error: ${e.message}", e)
+            Log.e("MainActivity", "Camera error: ${e.message}", e)
         }
     }
 
+    // 갤러리 실행
     private fun openGallery() {
         pickImageLauncher.launch("image/*")
     }
 
+    // 임시 이미지 파일 생성
     private fun createImageFile(): File? {
         return try {
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val imageFileName = "JPEG_" + timeStamp + "_"
+            val imageFileName = "JPEG_${timeStamp}_"
             val storageDir = cacheDir
-
-            Log.d("CameraDebug", "Creating file in: ${storageDir.absolutePath}")
-
-            val file = File.createTempFile(
-                imageFileName,
-                ".jpg",
-                storageDir
-            )
-            Log.d("CameraDebug", "File created: ${file.absolutePath}")
-            file
+            File.createTempFile(imageFileName, ".jpg", storageDir)
         } catch (e: Exception) {
-            Log.e("CameraDebug", "Error creating image file: ${e.message}", e)
+            Log.e("MainActivity", "Error creating image file: ${e.message}", e)
             null
         }
     }
 
-    private fun navigateToGeneratedStoryScreen(storyId: Long) {
-        val intent = Intent(this, GeneratedStoryActivity::class.java).apply {
-            putExtra("STORY_ID", storyId)
-        }
-        startActivity(intent)
-    }
-
-    private fun navigateToScreen(screen: String) {
-        when (screen) {
-            "home" -> { /* Already in home screen */ }
-            "fairytale_list" -> {
-                val intent = Intent(this, FairyTaleListActivity::class.java)
-                startActivity(intent)
-            }
-            "voice_list" -> {
-                val intent = Intent(this, VoiceListActivity::class.java)
-                startActivity(intent)
-            }
-            "music_list" -> {
-                val intent = Intent(this, MusicListActivity::class.java)
-                startActivity(intent)
-            }
-            "settings" -> {
-                val intent = Intent(this, SettingsActivity::class.java)
-                startActivity(intent)
-            }
-            else -> Log.d("Navigation", "Unknown screen: $screen")
-        }
-    }
-
-    private fun startStoryCreation() {
-        capturedImageBitmap?.let { bitmap ->
-            selectedTheme?.let { theme ->
-                isLoading = true
-                lifecycleScope.launch {
-                    try {
-                        val storyId = storyCreationController.createStory(bitmap, theme)
-                        isLoading = false
-                        navigateToGeneratedStoryScreen(storyId)
-                    } catch (e: Exception) {
-                        isLoading = false
-                        Toast.makeText(this@MainActivity, "동화 생성에 실패했습니다: ${e.message}", Toast.LENGTH_LONG).show()
-                        Log.e("StoryCreation", "Error creating story", e)
-                    }
-                }
-            } ?: run {
-                Toast.makeText(this, "테마를 선택해주세요", Toast.LENGTH_SHORT).show()
-            }
-        } ?: run {
+    // 동화 생성 시작
+    private fun startStoryCreation(navController: androidx.navigation.NavController) {
+        if (capturedImageBitmap == null) {
             Toast.makeText(this, "사진을 찍거나 선택해주세요", Toast.LENGTH_SHORT).show()
-        }
-    }
-}
-
-@Composable
-fun StoryApp(
-    capturedImageBitmap: Bitmap?,
-    selectedTheme: String?,
-    isLoading: Boolean = false,
-    onTakePhotoClicked: () -> Unit,
-    onPickImageClicked: () -> Unit,
-    onThemeSelected: (String) -> Unit,
-    onGenerateStoryClicked: () -> Unit,
-    onNavigationItemClicked: (String) -> Unit
-) {
-    var showThemeDialog by remember { mutableStateOf(false) }
-    val themeOptions = remember { listOf("판타지", "사랑", "SF", "공포", "코미디") }
-    val themeButtonText = selectedTheme ?: "테마"
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-        ) {
-            // 상단 바 (헤더)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 22.dp)
-            ) {
-                Text(
-                    text = "홈",
-                    modifier = Modifier.align(Alignment.Center),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-            }
-            HorizontalDivider(
-                modifier = Modifier.fillMaxWidth(),
-                thickness = 1.5.dp,
-                color = Color(0xFFE0E0E0)
-            )
-
-            // 메인 이미지
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
-            ) {
-                if (capturedImageBitmap != null) {
-                    Image(
-                        bitmap = capturedImageBitmap.asImageBitmap(),
-                        contentDescription = "Captured Image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(350.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .shadow(4.dp, RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Image(
-                        painter = painterResource(id = R.drawable.example_image),
-                        contentDescription = "Default Image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(350.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .shadow(4.dp, RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-            }
-
-            // 버튼 영역
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight()
-                    .weight(1f)
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // 첫 번째 행: 사진 찍기, 갤러리에서 불러오기, 테마 버튼 나란히 배치
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // 사진 찍기 버튼
-                    Button(
-                        onClick = { onTakePhotoClicked() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp)
-                            .shadow(3.dp, RoundedCornerShape(12.dp)),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFEE566),
-                            contentColor = Color(0xFF1C1C0D)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 2.dp,
-                            pressedElevation = 8.dp
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_home),
-                            contentDescription = "사진 찍기",
-                            modifier = Modifier.size(18.dp),
-                            tint = Color(0xFF1C1C0D)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "사진 찍기",
-                            style = TextStyle(
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                        )
-                    }
-
-                    // 갤러리에서 불러오기 버튼
-                    Button(
-                        onClick = { onPickImageClicked() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp)
-                            .shadow(3.dp, RoundedCornerShape(12.dp)),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFEE566),
-                            contentColor = Color(0xFF1C1C0D)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 2.dp,
-                            pressedElevation = 8.dp
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_bookmark),
-                            contentDescription = "갤러리",
-                            modifier = Modifier.size(18.dp),
-                            tint = Color(0xFF1C1C0D)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "갤러리",
-                            style = TextStyle(
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                        )
-                    }
-
-                    // 테마 버튼
-                    Button(
-                        onClick = { showThemeDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp)
-                            .shadow(3.dp, RoundedCornerShape(12.dp)),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFEE566),
-                            contentColor = Color(0xFF1C1C0D)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 2.dp,
-                            pressedElevation = 8.dp
-                        ),
-                        enabled = !isLoading
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_settings),
-                            contentDescription = "테마 선택",
-                            modifier = Modifier.size(18.dp),
-                            tint = Color(0xFF1C1C0D)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = themeButtonText,
-                            style = TextStyle(
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 동화 생성하기 버튼 (강조)
-                Button(
-                    onClick = { onGenerateStoryClicked() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(60.dp)
-                        .shadow(6.dp, RoundedCornerShape(16.dp)),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFD166),
-                        contentColor = Color(0xFF1C1C0D)
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 4.dp,
-                        pressedElevation = 12.dp
-                    ),
-                    enabled = !isLoading && capturedImageBitmap != null && selectedTheme != null
-                ) {
-                    Text(
-                        text = "동화 생성하기",
-                        style = TextStyle(
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Center
-                        )
-                    )
-                }
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.fillMaxWidth(),
-                thickness = 1.5.dp,
-                color = Color(0xFFE0E0E0)
-            )
-
-            // 하단 네비게이션
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val iconTint = Color(0xFFAA8866)
-
-                    BottomNavItem(
-                        iconResId = R.drawable.ic_home,
-                        text = "홈화면",
-                        tint = iconTint,
-                        isSelected = true,
-                        onClick = { onNavigationItemClicked("home") }
-                    )
-                    BottomNavItem(
-                        iconResId = R.drawable.ic_bookmark,
-                        text = "동화 리스트",
-                        tint = iconTint,
-                        onClick = { onNavigationItemClicked("fairytale_list") }
-                    )
-                    BottomNavItem(
-                        iconResId = R.drawable.ic_bookmark,
-                        text = "목소리 리스트",
-                        tint = iconTint,
-                        onClick = { onNavigationItemClicked("voice_list") }
-                    )
-                    BottomNavItem(
-                        iconResId = R.drawable.ic_music,
-                        text = "음악 리스트",
-                        tint = iconTint,
-                        onClick = { onNavigationItemClicked("music_list") }
-                    )
-                    BottomNavItem(
-                        iconResId = R.drawable.ic_settings,
-                        text = "설정",
-                        tint = iconTint,
-                        onClick = { onNavigationItemClicked("settings") }
-                    )
-                }
-            }
+            return
         }
 
-        // 로딩 표시
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(60.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "동화를 생성 중입니다. 잠시만 기다려주세요...",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+        if (selectedTheme == null) {
+            Toast.makeText(this, "테마를 선택해주세요", Toast.LENGTH_SHORT).show()
+            return
         }
-    }
 
-    // 테마 선택 대화상자
-    if (showThemeDialog) {
-        ThemeSelectionDialog(
-            themeOptions = themeOptions,
-            onThemeSelected = { theme ->
-                onThemeSelected(theme)
-                showThemeDialog = false
-            },
-            onDismiss = { showThemeDialog = false }
-        )
-    }
-}
+        isLoading = true
+        lifecycleScope.launch {
+            try {
+                val bitmap = capturedImageBitmap ?: throw IllegalStateException("이미지가 없습니다")
+                val theme = selectedTheme ?: throw IllegalStateException("테마가 선택되지 않았습니다")
 
-@Composable
-fun ThemeSelectionDialog(
-    themeOptions: List<String>,
-    onThemeSelected: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight(),
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White,
-            shadowElevation = 8.dp
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "테마 선택",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                Log.d("MainActivity", "Starting story creation with theme: $theme")
+                val storyId = storyCreationController.createStory(bitmap, theme)
+                Log.d("MainActivity", "Story created successfully with ID: $storyId")
 
-                Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+                isLoading = false
 
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp)
-                ) {
-                    items(themeOptions) { theme ->
-                        ThemeItem(
-                            theme = theme,
-                            onThemeSelected = onThemeSelected
-                        )
-                        Divider(color = Color(0xFFE0E0E0), thickness = 0.5.dp)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(
-                        onClick = onDismiss
-                    ) {
-                        Text(
-                            text = "취소",
-                            color = Color.Gray,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
+                // 생성된 동화 화면으로 네비게이션
+                navController.navigate(NavRoute.GeneratedStory.createRoute(storyId))
+            } catch (e: Exception) {
+                isLoading = false
+                Log.e("MainActivity", "Error creating story: ${e.message}", e)
+                Toast.makeText(this@MainActivity, "동화 생성에 실패했습니다: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
 }
-
-@Composable
-fun ThemeItem(theme: String, onThemeSelected: (String) -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onThemeSelected(theme) }
-            .padding(vertical = 12.dp, horizontal = 8.dp)
-    ) {
-        Text(
-            text = theme,
-            fontSize = 16.sp,
-            color = Color.Black
-        )
-    }
-}
-

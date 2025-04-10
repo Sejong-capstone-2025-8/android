@@ -1,97 +1,126 @@
 package com.toprunner.imagestory.util
 
+import android.util.Log
 import com.toprunner.imagestory.model.VoiceFeatures
-import kotlin.math.abs
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.pow
 import kotlin.math.sqrt
 
 class VoiceFeaturesUtil {
+    private val TAG = "VoiceFeaturesUtil"
 
     fun parseVoiceFeatures(json: String): VoiceFeatures {
-        val gson = com.google.gson.Gson()
-        return gson.fromJson(json, VoiceFeatures::class.java)
+        try {
+            val jsonObj = JSONObject(json)
+            val averagePitch = jsonObj.optDouble("averagePitch", 120.0)
+            val pitchStdDev = jsonObj.optDouble("pitchStdDev", 15.0)
+            val mfccValues = mutableListOf<DoubleArray>()
+
+            if (jsonObj.has("mfccValues")) {
+                val mfccArray = jsonObj.getJSONArray("mfccValues")
+                for (i in 0 until mfccArray.length()) {
+                    val coeffArray = mfccArray.getJSONArray(i)
+                    val coeffs = DoubleArray(coeffArray.length())
+                    for (j in 0 until coeffArray.length()) {
+                        coeffs[j] = coeffArray.getDouble(j)
+                    }
+                    mfccValues.add(coeffs)
+                }
+            } else {
+                // 기본값 추가
+                mfccValues.add(DoubleArray(13) { 0.0 })
+            }
+
+            return VoiceFeatures(averagePitch, pitchStdDev, mfccValues)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing voice features: ${e.message}", e)
+            // 파싱 실패 시 기본값 반환
+            return VoiceFeatures(
+                averagePitch = 120.0,
+                pitchStdDev = 15.0,
+                mfccValues = listOf(DoubleArray(13) { 0.0 })
+            )
+        }
     }
 
     fun voiceFeaturesToJson(voiceFeatures: VoiceFeatures): String {
-        val gson = com.google.gson.Gson()
-        return gson.toJson(voiceFeatures)
+        try {
+            val jsonObj = JSONObject()
+            jsonObj.put("averagePitch", voiceFeatures.averagePitch)
+            jsonObj.put("pitchStdDev", voiceFeatures.pitchStdDev)
+
+            val mfccArray = JSONArray()
+            for (coeffs in voiceFeatures.mfccValues) {
+                val coeffArray = JSONArray()
+                for (coeff in coeffs) {
+                    coeffArray.put(coeff)
+                }
+                mfccArray.put(coeffArray)
+            }
+            jsonObj.put("mfccValues", mfccArray)
+
+            return jsonObj.toString()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error converting voice features to JSON: ${e.message}", e)
+            // 변환 실패 시 기본 JSON 반환
+            return """{"averagePitch":120.0,"pitchStdDev":15.0,"mfccValues":[[0,0,0,0,0,0,0,0,0,0,0,0,0]]}"""
+        }
     }
 
-    /**
-     * 두 음성 특성 간의 유사도를 계산하는 함수
-     * 반환값이 작을수록 더 유사함
-     */
     fun calculateSimilarity(features1: VoiceFeatures, features2: VoiceFeatures): Double {
-        var similarity = 0.0
+        try {
+            // 피치 유사도 계산 (표준화된 유클리드 거리)
+            val pitchDiff = (features1.averagePitch - features2.averagePitch).pow(2) / 100.0 +
+                    (features1.pitchStdDev - features2.pitchStdDev).pow(2) / 25.0
+            val pitchDistance = sqrt(pitchDiff)
 
-        // 피치 차이 계산 (가중치: 0.3)
-        val pitchDiff = abs(features1.averagePitch - features2.averagePitch)
-        similarity += 0.3 * (pitchDiff / 100.0) // 피치는 일반적으로 수백 Hz 단위
+            // MFCC 유사도 계산 (코사인 유사도로 확장 가능)
+            // 간단하게 첫 번째 MFCC 벡터만 사용
+            var mfccDistance = 0.0
+            if (features1.mfccValues.isNotEmpty() && features2.mfccValues.isNotEmpty()) {
+                val mfcc1 = features1.mfccValues[0]
+                val mfcc2 = features2.mfccValues[0]
 
-        // 피치 표준편차 차이 계산 (가중치: 0.2)
-        val stdDevDiff = abs(features1.pitchStdDev - features2.pitchStdDev)
-        similarity += 0.2 * (stdDevDiff / 50.0) // 표준편차는 일반적으로 수십 단위
+                // 벡터 길이가 다를 경우 처리
+                val minLength = minOf(mfcc1.size, mfcc2.size)
+                var sumSquaredDiff = 0.0
+                for (i in 0 until minLength) {
+                    sumSquaredDiff += (mfcc1[i] - mfcc2[i]).pow(2)
+                }
+                mfccDistance = sqrt(sumSquaredDiff) / minLength
+            }
 
-        // MFCC 벡터 유사도 계산 (가중치: 0.5)
-        val mfccSimilarity = calculateMfccSimilarity(features1.mfccValues, features2.mfccValues)
-        similarity += 0.5 * mfccSimilarity
+            // 피치와 MFCC 유사도 조합 (가중치 조정 가능)
+            val combinedDistance = pitchDistance * 0.7 + mfccDistance * 0.3
 
-        return similarity
-    }
-
-    /**
-     * MFCC 벡터 간의 유사도를 계산하는 함수 (유클리드 거리 사용)
-     */
-    private fun calculateMfccSimilarity(mfcc1: List<DoubleArray>, mfcc2: List<DoubleArray>): Double {
-        // 두 MFCC 벡터의 길이가 다를 경우 짧은 쪽에 맞춤
-        val minSize = minOf(mfcc1.size, mfcc2.size)
-
-        var totalDistance = 0.0
-
-        for (i in 0 until minSize) {
-            val frame1 = mfcc1[i]
-            val frame2 = mfcc2[i]
-
-            // 각 프레임의 유클리드 거리 계산
-            val frameDistance = calculateEuclideanDistance(frame1, frame2)
-            totalDistance += frameDistance
+            // 거리를 유사도로 변환 (0.0~1.0, 1.0이 가장 유사)
+            return 1.0 / (1.0 + combinedDistance)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error calculating similarity: ${e.message}", e)
+            return 0.5 // 기본 유사도
         }
-
-        // 정규화된 평균 거리 반환
-        return totalDistance / minSize
     }
 
-    private fun calculateEuclideanDistance(array1: DoubleArray, array2: DoubleArray): Double {
-        val minSize = minOf(array1.size, array2.size)
-        var sumSquaredDiff = 0.0
-
-        for (i in 0 until minSize) {
-            val diff = array1[i] - array2[i]
-            sumSquaredDiff += diff.pow(2)
-        }
-
-        return sqrt(sumSquaredDiff)
-    }
-
-    /**
-     * 주어진 음성 특성에 가장 유사한 음성 ID를 찾는 함수
-     */
-    fun findBestMatchingVoice(targetFeatures: VoiceFeatures, voicesList: List<Pair<Long, VoiceFeatures>>): Long {
+    fun findBestMatchingVoice(
+        targetFeatures: VoiceFeatures,
+        voicesList: List<Pair<Long, VoiceFeatures>>
+    ): Long {
         if (voicesList.isEmpty()) {
-            return 0L // 기본값
+            return 0L
         }
 
-        var bestVoiceId = voicesList[0].first
-        var bestSimilarity = Double.MAX_VALUE
+        var bestMatch = voicesList.first().first
+        var highestSimilarity = 0.0
 
         for ((voiceId, features) in voicesList) {
             val similarity = calculateSimilarity(targetFeatures, features)
-            if (similarity < bestSimilarity) {
-                bestSimilarity = similarity
-                bestVoiceId = voiceId
+            if (similarity > highestSimilarity) {
+                highestSimilarity = similarity
+                bestMatch = voiceId
             }
         }
 
-        return bestVoiceId
+        return bestMatch
     }
 }

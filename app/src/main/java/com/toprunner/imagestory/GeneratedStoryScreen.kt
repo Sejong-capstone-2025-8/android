@@ -1,27 +1,18 @@
-package com.toprunner.imagestory
+package com.toprunner.imagestory.screens
 
-import android.content.Intent
-import android.graphics.Bitmap
-import android.net.Uri
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.Divider
-import androidx.compose.material.Icon
-import androidx.compose.material.Slider
-import androidx.compose.material.SliderDefaults
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,48 +24,150 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
+import androidx.navigation.NavController
+import com.toprunner.imagestory.R
 import com.toprunner.imagestory.data.entity.FairyTaleEntity
-import com.toprunner.imagestory.ui.theme.ImageStoryTheme
+import com.toprunner.imagestory.data.entity.ImageEntity
+import com.toprunner.imagestory.navigation.NavRoute
+import com.toprunner.imagestory.repository.FairyTaleRepository
+import com.toprunner.imagestory.repository.ImageRepository
+import com.toprunner.imagestory.repository.TextRepository
+import com.toprunner.imagestory.service.TTSService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.File
 
 @Composable
 fun GeneratedStoryScreen(
-    fairyTaleEntity: FairyTaleEntity? = null,
-    storyContent: String = "",
-    storyImage: Bitmap? = null,
-    isPlaying: Boolean = false,
-    onPlayClicked: () -> Unit = {},
-    onPauseClicked: () -> Unit = {},
-    onStopClicked: () -> Unit = {},
-    onVoiceSelectClicked: () -> Unit = {},
-    onMusicSelectClicked: () -> Unit = {},
-    onVoiceRecommendClicked: () -> Unit = {},
-    onBackClicked: () -> Unit = {}
+    storyId: Long,
+    navController: NavController
 ) {
-    val backgroundColor = Color(0xFFFFFBF0) // 밝은 크림색 배경
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
-    // 네트워크 오류 팝업 상태 관리
-    var showNetworkErrorDialog by remember { mutableStateOf(false) }
+    // 상태 변수들
+    var fairyTaleEntity by remember { mutableStateOf<FairyTaleEntity?>(null) }
+    var storyTitle by remember { mutableStateOf("") }
+    var storyContent by remember { mutableStateOf("") }
+    var storyImage by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var isPlaying by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) }
+    var playbackProgress by remember { mutableStateOf(0f) }
+    var audioDuration by remember { mutableStateOf("0:00") }
+    var currentAudioPath by remember { mutableStateOf<String?>(null) }
 
-    // 진행 상태 (UI 데모용)
-    var playbackProgress by remember { mutableStateOf(0.43f) }
+    // TTS 서비스
+    val ttsService = remember { TTSService(context) }
+
+    // 동화 로드
+    LaunchedEffect(storyId) {
+        loadStory(
+            context = context,
+            storyId = storyId,
+            onStoryLoaded = { entity, content, bitmap, audioPath ->
+                fairyTaleEntity = entity
+                storyTitle = entity.title
+                storyContent = content
+                storyImage = bitmap
+                currentAudioPath = audioPath
+                isLoading = false
+            },
+            onError = { errorMessage ->
+                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                isLoading = false
+            }
+        )
+    }
+
+    // 재생 상태 업데이트
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            while (isPlaying) {
+                playbackProgress = ttsService.getPlaybackProgress()
+                // 재생이 끝나면 초기화
+                if (playbackProgress >= 1f) {
+                    isPlaying = false
+                    playbackProgress = 0f
+                }
+                delay(100) // 100ms마다 업데이트
+            }
+        }
+    }
+
+    // 오디오 재생 기능
+    val playStoryAudio = {
+        currentAudioPath?.let { path ->
+            if (path.isEmpty()) {
+                Toast.makeText(context, "오디오 파일이 없습니다.", Toast.LENGTH_SHORT).show()
+                return@let
+            }
+
+            val success = if (isPlaying) {
+                ttsService.resumeAudio()
+            } else {
+                ttsService.playAudio(path)
+            }
+
+            if (success) {
+                isPlaying = true
+                updateAudioDurationText(ttsService.getTotalDuration(), audioDuration = { audioDuration = it })
+            } else {
+                Toast.makeText(context, "음성 재생에 실패했습니다.", Toast.LENGTH_SHORT).show()
+            }
+        } ?: run {
+            Toast.makeText(context, "오디오 파일을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // 오디오 일시 정지 기능
+    val pauseStoryAudio = {
+        val success = ttsService.pauseAudio()
+        if (success) {
+            isPlaying = false
+        }
+    }
+
+    // 오디오 정지 기능
+    val stopStoryAudio = {
+        val success = ttsService.stopAudio()
+        if (success) {
+            isPlaying = false
+            playbackProgress = 0f
+        }
+    }
+
+    // 목소리 추천 기능
+    val recommendVoice = {
+        Toast.makeText(context, "동화에 어울리는 목소리를 추천합니다.", Toast.LENGTH_SHORT).show()
+        // 실제 구현에서는 알고리즘에 따라 목소리 추천 후 적용
+    }
+
+    // 시간 표시 계산
+    @SuppressLint("DefaultLocale")
+    val progressText = "${(playbackProgress * 100).toInt()}%"
+
+    // 현재 재생 시간 계산
+    val totalDurationSec = getTotalDurationInSeconds(audioDuration)
+    val currentPositionSeconds = (playbackProgress * totalDurationSec).toInt()
+    val currentTimeText = String.format("%d:%02d", currentPositionSeconds / 60, currentPositionSeconds % 60)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(Color(0xFFFFFBF0))
     ) {
-        // 상단 헤더 (생성된 동화 + back 버튼)
+        // 상단 헤더
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
             Text(
                 text = "생성된 동화",
@@ -88,14 +181,13 @@ fun GeneratedStoryScreen(
                 text = "뒤로",
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .clickable { onBackClicked() },
-                fontSize = 18.sp,
-                color = Color(0xFF9C8A54) // 올리브/금색
+                    .clickable { navController.navigateUp() },
+                fontSize = 16.sp,
+                color = Color(0xFF9C8A54)
             )
         }
 
-        // 디바이더 라인
-        Divider(
+        HorizontalDivider(
             color = Color(0xFFE0E0E0),
             thickness = 1.5.dp,
             modifier = Modifier.fillMaxWidth()
@@ -107,24 +199,37 @@ fun GeneratedStoryScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
-            if (storyImage != null) {
+            if (storyImage != null && !isLoading) {
                 Image(
-                    bitmap = storyImage.asImageBitmap(),
+                    bitmap = storyImage!!.asImageBitmap(),
                     contentDescription = "Story Image",
                     modifier = Modifier
-                        .aspectRatio(1.5f)
+                        .fillMaxWidth()
+                        .height(200.dp)
                         .clip(RoundedCornerShape(16.dp)),
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Image(
-                    painter = painterResource(id = R.drawable.example_image),
-                    contentDescription = "Default Story Image",
+                Box(
                     modifier = Modifier
-                        .aspectRatio(1.5f)
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop
-                )
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.LightGray),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color(0xFFE9D364)
+                        )
+                    } else {
+                        Text(
+                            text = "이미지 준비 중...",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
         }
 
@@ -136,10 +241,11 @@ fun GeneratedStoryScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = fairyTaleEntity?.title ?: "동화 제목",
+                text = storyTitle.ifEmpty { "동화 제목" },
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = Color.Black,
+                textAlign = TextAlign.Center
             )
 
             Text(
@@ -153,7 +259,7 @@ fun GeneratedStoryScreen(
         // 오디오 진행 상태 바
         Slider(
             value = playbackProgress,
-            onValueChange = { playbackProgress = it },
+            onValueChange = { /* 진행바 드래그는 구현하지 않음 */ },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
@@ -161,25 +267,26 @@ fun GeneratedStoryScreen(
             colors = SliderDefaults.colors(
                 thumbColor = Color(0xFFE9D364), // 노란색 썸네일
                 activeTrackColor = Color(0xFFE9D364), // 노란색 활성 트랙
-                inactiveTrackColor = Color(0xFFE0E0E0), // 회색 비활성 트랙
-            )
+                inactiveTrackColor = Color(0xFFE0E0E0) // 회색 비활성 트랙
+            ),
+            enabled = !isLoading
         )
 
         // 시간 정보
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "${(playbackProgress * 100).toInt()}%",
+                text = progressText,
                 fontSize = 14.sp,
                 color = Color.Gray
             )
 
             Text(
-                text = "2:23", // 실제 앱에서는 계산된 시간 표시
+                text = "$currentTimeText / $audioDuration",
                 fontSize = 14.sp,
                 color = Color.Gray
             )
@@ -199,14 +306,18 @@ fun GeneratedStoryScreen(
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFE9D364))
-                    .clickable { if (isPlaying) onPauseClicked() else onPlayClicked() },
+                    .clickable(enabled = !isLoading) {
+                        if (isPlaying) pauseStoryAudio() else playStoryAudio()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Filled.Warning else Icons.Filled.PlayArrow,
+                    painter = painterResource(
+                        id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                    ),
                     contentDescription = if (isPlaying) "Pause" else "Play",
                     tint = Color.Black,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -218,13 +329,14 @@ fun GeneratedStoryScreen(
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFE9D364))
-                    .clickable { onStopClicked() },
+                    .clickable(enabled = !isLoading) { stopStoryAudio() },
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .background(Color.Black)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_stop),
+                    contentDescription = "Stop",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -238,7 +350,9 @@ fun GeneratedStoryScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onVoiceSelectClicked() }
+                    .clickable(enabled = !isLoading) {
+                        navController.navigate(NavRoute.VoiceList.route)
+                    }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -250,14 +364,14 @@ fun GeneratedStoryScreen(
                 )
 
                 Icon(
-                    imageVector = Icons.Default.ArrowForward,
+                    painter = painterResource(id = R.drawable.ic_arrow_forward),
                     contentDescription = "More",
                     tint = Color.Gray
                 )
             }
 
             // 디바이더 라인
-            Divider(
+            HorizontalDivider(
                 color = Color(0xFFE0E0E0),
                 thickness = 1.dp,
                 modifier = Modifier.fillMaxWidth()
@@ -267,7 +381,9 @@ fun GeneratedStoryScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onMusicSelectClicked() }
+                    .clickable(enabled = !isLoading) {
+                        navController.navigate(NavRoute.MusicList.route)
+                    }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -279,45 +395,42 @@ fun GeneratedStoryScreen(
                 )
 
                 Icon(
-                    imageVector = Icons.Default.ArrowForward,
+                    painter = painterResource(id = R.drawable.ic_arrow_forward),
                     contentDescription = "More",
                     tint = Color.Gray
                 )
             }
 
             // 디바이더 라인
-            Divider(
+            HorizontalDivider(
                 color = Color(0xFFE0E0E0),
                 thickness = 1.dp,
                 modifier = Modifier.fillMaxWidth()
             )
 
-
             // 목소리 추천 버튼 수정 - 더 명확한 버튼 형태로
             Button(
-                onClick = { onVoiceRecommendClicked() },
+                onClick = { recommendVoice() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .height(36.dp),
                 colors = ButtonDefaults.buttonColors(
-                    backgroundColor = Color(0xFFF5F5F5), // 밝은 회색 배경
-                    contentColor = Color.Black
+                    containerColor = Color(0xFFF5F5F5) // 밝은 회색 배경
                 ),
                 shape = RoundedCornerShape(8.dp),
-                elevation = ButtonDefaults.elevation(
-                    defaultElevation = 2.dp
-                )
+                enabled = !isLoading
             ) {
                 Text(
                     text = "목소리 추천",
                     fontWeight = FontWeight.Medium,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    color = Color.Black
                 )
             }
 
             // 디바이더 라인
-            Divider(
+            HorizontalDivider(
                 color = Color(0xFFE0E0E0),
                 thickness = 1.dp,
                 modifier = Modifier.fillMaxWidth()
@@ -328,6 +441,8 @@ fun GeneratedStoryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .weight(1f, fill = false)
+                    .verticalScroll(scrollState)
             ) {
                 if (storyContent.isNotEmpty()) {
                     // 동화 텍스트를 줄바꿈 기준으로 분리
@@ -336,191 +451,151 @@ fun GeneratedStoryScreen(
                         if (line.isNotEmpty()) {
                             Text(
                                 text = line,
-                                fontSize = 14.sp,
+                                fontSize = 16.sp,
                                 color = Color.Black,
-                                modifier = Modifier.padding(top = 4.dp)
+                                modifier = Modifier.padding(top = 4.dp),
+                                lineHeight = 24.sp
                             )
                         }
+                    }
+                } else if (isLoading) {
+                    // 로딩 중 표시
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFFE9D364)
+                        )
                     }
                 } else {
                     // 기본 텍스트 표시
                     Text(
                         text = "동화 텍스트가 준비 중입니다...",
-                        fontSize = 14.sp,
-                        color = Color.Black
+                        fontSize = 16.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
+
+                // 스크롤을 위한 하단 여백
+                Spacer(modifier = Modifier.height(80.dp))
             }
         }
+    }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        // 하단 네비게이션
+    // 로딩 표시
+    if (isLoading) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                val iconTint = Color(0xFFAA8866) // 베이지/갈색
-
-                BottomNavItem(
-                    iconResId = R.drawable.ic_home,
-                    text = "홈화면",
-                    tint = iconTint,
-                    isSelected = true,
-                    onClick = {
-                        val intent = Intent(context, MainActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        context.startActivity(intent)
-                    }
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(60.dp)
                 )
-                BottomNavItem(
-                    iconResId = R.drawable.ic_bookmark,
-                    text = "동화 리스트",
-                    tint = iconTint,
-                    onClick = {
-                        // 동화 목록 화면으로 이동 (FairyTaleListActivity 가정)
-                        val intent = Intent(context, FairyTaleListActivity::class.java)
-                        context.startActivity(intent)
-                    }
-                )
-                BottomNavItem(
-                    iconResId = R.drawable.ic_bookmark,
-                    text = "목소리 리스트",
-                    tint = iconTint,
-                    onClick = {
-                        // 목소리 목록 화면으로 이동 (VoiceListActivity 가정)
-                        val intent = Intent(context, VoiceListActivity::class.java)
-                        context.startActivity(intent)
-                    }
-                )
-                BottomNavItem(
-                    iconResId = R.drawable.ic_music,
-                    text = "음악 리스트",
-                    tint = iconTint,
-                    onClick = {
-                        // 음악 목록 화면으로 이동 (MusicListActivity 가정)
-                        val intent = Intent(context, MusicListActivity::class.java)
-                        context.startActivity(intent)
-                    }
-                )
-                BottomNavItem(
-                    iconResId = R.drawable.ic_settings,
-                    text = "설정",
-                    tint = iconTint,
-                    onClick = {
-                        // 설정 화면으로 이동
-                        val intent = Intent(context, SettingsActivity::class.java)
-                        context.startActivity(intent)
-                    }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "동화를 불러오는 중입니다...",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
     }
 
-    // 네트워크 오류 팝업 대화상자
-    if (showNetworkErrorDialog) {
-        Dialog(onDismissRequest = { showNetworkErrorDialog = false }) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight(),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                elevation = 8.dp
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,  // 네트워크 오류 아이콘으로 변경
-                        contentDescription = "네트워크 오류",
-                        tint = Color.Red,
-                        modifier = Modifier.size(48.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "네트워크 상태를 확인하고 다시 시도해주세요",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                        color = Color.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Button(
-                        onClick = { showNetworkErrorDialog = false },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = Color(0xFFE9D364),
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = "확인",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-                }
-            }
+    // 화면 이탈 시 오디오 정지
+    DisposableEffect(Unit) {
+        onDispose {
+            ttsService.stopAudio()
         }
     }
 }
 
-//@Composable
-//fun BottomNavItem(
-//    iconResId: Int,
-//    text: String,
-//    tint: Color = Color(0xFFAA8866),
-//    isSelected: Boolean = false
-//) {
-//    val textColor = if (isSelected) Color.Black else Color(0xFF666666)
-//    val iconTint = if (isSelected) Color.Black else tint
-//    val fontWeight = if(isSelected) FontWeight.Bold else FontWeight.Normal
-//
-//    Column(
-//        horizontalAlignment = Alignment.CenterHorizontally,
-//        verticalArrangement = Arrangement.Center,
-//        modifier = Modifier.padding(horizontal = 4.dp)
-//    ) {
-//        Icon(
-//            painter = painterResource(id = iconResId),
-//            contentDescription = text,
-//            modifier = Modifier.size(24.dp),
-//            tint = iconTint
-//        )
-//        Spacer(modifier = Modifier.height(4.dp))
-//        Text(
-//            text = text,
-//            fontSize = 12.sp,
-//            color = textColor,
-//            textAlign = TextAlign.Center,
-//            fontWeight = fontWeight
-//        )
-//    }
-//}
+// 동화 로드 함수
+private suspend fun loadStory(
+    context: Context,
+    storyId: Long,
+    onStoryLoaded: (FairyTaleEntity, String, android.graphics.Bitmap?, String?) -> Unit,
+    onError: (String) -> Unit
+) {
+    try {
+        withContext(Dispatchers.IO) {
+            val fairyTaleRepository = FairyTaleRepository(context)
+            val imageRepository = ImageRepository(context)
+            val textRepository = TextRepository(context)
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
-@Composable
-fun GeneratedStoryScreenPreview() {
-    ImageStoryTheme {
-        GeneratedStoryScreen(
-            storyContent = "옛날 옛적, 깊은 숲속에 작은 마을이 있었습니다.\n이 마을에 살던 소녀는 매일 아침 숲을 거닐며 자연과 이야기를 나누곤 했습니다.\n어느 날, 소녀는 숲속에서 반짝이는 빛을 발견했습니다..."
-        )
+            // 동화 엔티티 로드
+            val (story, _) = fairyTaleRepository.getFairyTaleById(storyId)
+
+            // 텍스트 내용 로드
+            val textContent = textRepository.getTextById(story.text_id)?.second ?: ""
+
+            // 이미지 로드
+            var bitmap: android.graphics.Bitmap? = null
+            val imageEntity = imageRepository.getImageById(story.image_id)
+            if (imageEntity != null) {
+                bitmap = loadImage(imageEntity.image_path)
+            }
+
+            // 오디오 파일 경로 로드
+            var audioPath: String? = null
+            try {
+                val attributeJson = JSONObject(story.attribute)
+                audioPath = attributeJson.optString("audioPath", "")
+            } catch (e: Exception) {
+                // JSON 파싱 오류 처리
+            }
+
+            withContext(Dispatchers.Main) {
+                onStoryLoaded(story, textContent, bitmap, audioPath)
+            }
+        }
+    } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+            onError("동화 로드 오류: ${e.message}")
+        }
+    }
+}
+
+// 이미지 로드 함수
+private fun loadImage(imagePath: String): android.graphics.Bitmap? {
+    return try {
+        val file = File(imagePath)
+        if (file.exists()) {
+            BitmapFactory.decodeFile(file.absolutePath)
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+// 오디오 시간 업데이트 함수
+private fun updateAudioDurationText(totalDurationMs: Int, audioDuration: (String) -> Unit) {
+    val minutes = totalDurationMs / 60000
+    val seconds = (totalDurationMs % 60000) / 1000
+    audioDuration(String.format("%d:%02d", minutes, seconds))
+}
+
+// 총 재생 시간을 초 단위로 변환
+private fun getTotalDurationInSeconds(durationText: String): Int {
+    val parts = durationText.split(":")
+    return if (parts.size >= 2) {
+        val minutes = parts[0].toIntOrNull() ?: 0
+        val seconds = parts[1].toIntOrNull() ?: 0
+        minutes * 60 + seconds
+    } else {
+        0
     }
 }

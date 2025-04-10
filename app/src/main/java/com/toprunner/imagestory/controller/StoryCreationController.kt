@@ -34,21 +34,34 @@ class StoryCreationController(private val context: Context) {
                 throw IllegalArgumentException("이미지가 동화 생성에 적합하지 않습니다.")
             }
 
+            // 테마 매핑 (한글 -> 영어)
+            val englishTheme = when (theme) {
+                "판타지" -> "fantasy"
+                "사랑" -> "love"
+                "SF" -> "sf"
+                "공포" -> "horror"
+                "코미디" -> "comedy"
+                else -> "fantasy" // 기본값
+            }
+
             // GPT API를 통해 동화 생성
-            Log.d(TAG, "Generating story content using GPT API")
-            val gptResponse = gptService.generateStory(image, theme)
+            Log.d(TAG, "Generating story content using GPT API with theme: $englishTheme")
+            val gptResponse = gptService.generateStory(image, englishTheme)
             Log.d(TAG, "GPT API returned response successfully")
 
             // 동화 내용 처리
-            val processedResponse = processGPTResponse(gptResponse)
-            val title = processedResponse.first
-            val storyText = processedResponse.second
+            val storyData = processGPTResponse(gptResponse)
+            val title = storyData.first
+            val storyText = storyData.second
+
+            Log.d(TAG, "Processed story with title: $title and text length: ${storyText.length}")
 
             // 음성 특성 추출
             val voiceFeatures = extractVoiceFeatures(gptResponse)
+            Log.d(TAG, "Extracted voice features")
 
             // 동화에 적합한 음성 추천
-            val voiceId = voiceRepository.recommendVoice(theme, voiceFeatures)
+            val voiceId = voiceRepository.recommendVoice(englishTheme, voiceFeatures)
             Log.d(TAG, "Recommended voice ID: $voiceId")
 
             // 추천된 음성으로 오디오 생성
@@ -64,14 +77,17 @@ class StoryCreationController(private val context: Context) {
             val textId = textRepository.saveText(context, storyText)
             Log.d(TAG, "Text saved with ID: $textId")
 
+            // 임시 기본값 음악 ID (실제 구현에서는 적절한 음악 선택 필요)
+            val defaultMusicId = 1L
+
             // 동화 저장 및 ID 반환
             val fairyTaleId = fairyTaleRepository.saveFairyTale(
                 title = title,
                 voiceId = voiceId,
                 imageId = imageId,
                 textId = textId,
-                musicId = 0, // 기본 음악 ID 또는 사용자가 나중에 선택
-                theme = theme,
+                musicId = defaultMusicId, // 기본 음악 ID
+                theme = englishTheme,
                 audioData = audioData
             )
 
@@ -89,65 +105,96 @@ class StoryCreationController(private val context: Context) {
             return false
         }
 
-        // 더 복잡한 이미지 검증 로직을 구현할 수 있음
-        // 예: 이미지 선명도, 밝기 등 검사
-
+        // 더 복잡한 이미지 검증 로직 추가 가능
         return true
     }
 
     private fun processGPTResponse(responseData: String): Pair<String, String> {
         try {
             Log.d(TAG, "Processing GPT response")
-            // GPT API 응답에서 JSON 추출
+            // 전체 JSON 파싱 (예: API 응답 전체)
             val jsonResponse = JSONObject(responseData)
-
-            val title = jsonResponse.getString("title")
-            val text = jsonResponse.getString("text")
-
-            Log.d(TAG, "Extracted title: $title")
-            Log.d(TAG, "Extracted text length: ${text.length}")
-
-            return Pair(title, text)
+            // choices 배열 내의 첫 번째 객체 추출
+            val choices = jsonResponse.getJSONArray("choices")
+            if (choices.length() > 0) {
+                val message = choices.getJSONObject(0).getJSONObject("message")
+                val content = message.optString("content", "")
+                // 여기서 content 안에 제목과 본문이 포함된 경우,
+                // 예를 들어, "**동화: 제목**\n\n본문" 형식이라면 이를 분리할 수 있습니다.
+                // 아래는 예시: 제목이 "**동화: "로 시작하고 "**"로 끝나는 경우.
+                if (content.startsWith("**동화:") && content.contains("**")) {
+                    // 제목과 본문 분리
+                    val splitContent = content.split("**")
+                    if (splitContent.size >= 3) {
+                        val title = splitContent[1].trim().removePrefix("동화:").trim()
+                        // 나머지 부분을 본문으로 간주 (줄바꿈 기준 분리 가능)
+                        val text = splitContent.subList(2, splitContent.size).joinToString(" ").trim()
+                        return Pair(title, text)
+                    }
+                }
+                // 특별한 포맷이 없다면 기본 타이틀과 함께 전체 content를 본문으로 사용
+                return Pair("자동 생성된 동화", content)
+            } else {
+                Log.d(TAG, "No choices found in GPT response")
+                return Pair("자동 생성된 동화", "동화 내용이 없습니다.")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error processing GPT response: ${e.message}", e)
-            // JSON 파싱 오류 시 기본값 반환
-            return Pair("자동 생성된 제목", responseData.trim())
+            return Pair("자동 생성된 동화", "동화를 생성하는 중 오류가 발생했습니다.")
         }
     }
 
+
     private fun extractVoiceFeatures(gptResponse: String): VoiceFeatures {
         try {
-            val jsonResponse = JSONObject(gptResponse)
+            // GPT 응답에서 JSON 추출
+            val jsonStartIndex = gptResponse.indexOf("{")
+            val jsonEndIndex = gptResponse.lastIndexOf("}")
 
-            // GPT 응답에서 음성 특성 추출
-            val averagePitch = jsonResponse.optDouble("averagePitch", 120.0)
-            val pitchStdDev = jsonResponse.optDouble("pitchStdDev", 15.0)
+            if (jsonStartIndex >= 0 && jsonEndIndex > jsonStartIndex) {
+                val jsonText = gptResponse.substring(jsonStartIndex, jsonEndIndex + 1)
+                val jsonResponse = JSONObject(jsonText)
 
-            // MFCC 값 추출
-            val mfccValues = mutableListOf<DoubleArray>()
+                // 음성 특성 추출
+                val averagePitch = jsonResponse.optDouble("averagePitch", 120.0)
+                val pitchStdDev = jsonResponse.optDouble("pitchStdDev", 15.0)
 
-            if (jsonResponse.has("mfccValues")) {
-                val mfccArray = jsonResponse.getJSONArray("mfccValues")
+                // MFCC 값 추출
+                val mfccValues = mutableListOf<DoubleArray>()
 
-                for (i in 0 until mfccArray.length()) {
-                    val coeffArray = mfccArray.getJSONArray(i)
-                    val coeffs = DoubleArray(coeffArray.length())
-
-                    for (j in 0 until coeffArray.length()) {
-                        coeffs[j] = coeffArray.getDouble(j)
+                if (jsonResponse.has("mfccValues")) {
+                    try {
+                        val mfccArray = jsonResponse.getJSONArray("mfccValues")
+                        for (i in 0 until mfccArray.length()) {
+                            val coeffArray = mfccArray.getJSONArray(i)
+                            val coeffs = DoubleArray(coeffArray.length())
+                            for (j in 0 until coeffArray.length()) {
+                                coeffs[j] = coeffArray.getDouble(j)
+                            }
+                            mfccValues.add(coeffs)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing MFCC values: ${e.message}", e)
+                        // 오류 시 기본 MFCC 값 사용
+                        mfccValues.add(DoubleArray(13) { 0.0 })
                     }
-
-                    mfccValues.add(coeffs)
+                } else {
+                    // 기본 MFCC 값
+                    mfccValues.add(DoubleArray(13) { 0.0 })
                 }
-            } else {
-                // 기본 MFCC 값 (비어있는 값)
-                mfccValues.add(DoubleArray(13) { 0.0 })
-            }
 
-            return VoiceFeatures(averagePitch, pitchStdDev, mfccValues)
+                return VoiceFeatures(averagePitch, pitchStdDev, mfccValues)
+            } else {
+                // JSON 형식이 아닌 경우 기본값 반환
+                return VoiceFeatures(
+                    averagePitch = 120.0,
+                    pitchStdDev = 15.0,
+                    mfccValues = listOf(DoubleArray(13) { 0.0 })
+                )
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error extracting voice features: ${e.message}", e)
-            // 파싱 오류 시 기본값 반환
+            // 오류 시 기본값 반환
             return VoiceFeatures(
                 averagePitch = 120.0,
                 pitchStdDev = 15.0,
@@ -158,6 +205,22 @@ class StoryCreationController(private val context: Context) {
 
     suspend fun generateAudio(storyText: String, voiceId: Long): ByteArray {
         Log.d(TAG, "Generating audio for text length: ${storyText.length} with voice ID: $voiceId")
-        return ttsService.generateVoice(storyText, voiceId)
+
+        // 오류 핸들링 개선
+        try {
+            val audioData = ttsService.generateVoice(storyText, voiceId)
+
+            // 빈 오디오 데이터 처리
+            if (audioData.isEmpty()) {
+                Log.w(TAG, "TTS returned empty audio data, using dummy audio")
+                return ByteArray(1000) // 임시 더미 데이터
+            }
+
+            return audioData
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating audio: ${e.message}", e)
+            // 오류 발생 시 더미 오디오 데이터 반환
+            return ByteArray(1000)
+        }
     }
 }

@@ -47,8 +47,10 @@ class FairyTaleRepository(private val context: Context) {
         val fairyTale = fairyTaleDao.getFairyTaleById(fairyTaleId)
             ?: throw IllegalArgumentException("동화를 찾을 수 없습니다: ID $fairyTaleId")
 
-        // TextRepository에서 텍스트 내용 가져오기
-        val textContent = "동화 내용이 표시됩니다."  // 실제 구현에서는 TextRepository를 통해 가져옴
+        // TextRepository를 통해 실제 텍스트 파일의 내용을 가져옴
+        val textRepository = TextRepository(context)
+        val textEntityPair = textRepository.getTextById(fairyTale.text_id)
+        val textContent = textEntityPair?.second ?: "동화 내용이 없습니다."
 
         Pair(fairyTale, textContent)
     }

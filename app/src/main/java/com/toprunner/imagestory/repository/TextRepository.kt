@@ -1,6 +1,7 @@
 package com.toprunner.imagestory.repository
 
 import android.content.Context
+import android.util.Log
 import com.toprunner.imagestory.data.dao.TextDao
 import com.toprunner.imagestory.data.database.AppDatabase
 import com.toprunner.imagestory.data.entity.TextEntity
@@ -34,7 +35,7 @@ class TextRepository(private val context: Context) {
 
         // 텍스트 파일 읽기
         val content = fileStorageManager.readTextFile(text.text_path)
-
+        Log.d("TextRepository", "Read text from file: ${text.text_path} \nContent: $content")
         Pair(text, content)
     }
 

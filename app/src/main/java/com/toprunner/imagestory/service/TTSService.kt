@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
 
 class TTSService(private val context: Context) {
     private val voiceRepository = VoiceRepository(context)
@@ -23,58 +24,57 @@ class TTSService(private val context: Context) {
 
     companion object {
         private const val API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
-        private const val API_KEY = BuildConfig.ELEVENLABS_API_KEY
+        private val API_KEY = BuildConfig.ELEVENLABS_API_KEY
         private const val TAG = "TTSService"
     }
 
-    suspend fun generateVoice(text: String, voiceId: Long = 0): ByteArray = withContext(Dispatchers.IO) {
+    suspend fun generateVoice(text: String, voiceId: Long): ByteArray = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Generating voice for text length: ${text.length}")
-
-            // API 요청 헤더
+            Log.d(TAG, "Generating voice for text length: ${text.length} with voice ID: $voiceId")
             val headers = mapOf(
                 "Content-Type" to "application/json",
                 "xi-api-key" to API_KEY
             )
-
-            // 음성 ID 결정 (기본값: 'eleven_multilingual_v2')
             val elevenlabsVoiceId = getElevenlabsVoiceId(voiceId)
-            Log.d(TAG, "Using Elevenlabs voice ID: $elevenlabsVoiceId")
-
-            // 요청 본문 생성
             val requestBody = createRequestBody(text)
-
-            // API URL (음성 ID 포함)
             val apiUrl = "$API_URL/$elevenlabsVoiceId"
-            Log.d(TAG, "Sending request to Elevenlabs API: $apiUrl")
-
-            // API 요청 전송
             val responseBytes = networkUtil.downloadAudio(apiUrl, headers, requestBody)
-            Log.d(TAG, "Received audio response size: ${responseBytes.size} bytes")
-
-            // 응답이 비어있으면 오류 처리
             if (responseBytes.isEmpty()) {
                 throw IllegalStateException("음성 생성에 실패했습니다: 응답이 비어있습니다.")
             }
-
             responseBytes
         } catch (e: Exception) {
             Log.e(TAG, "Error generating voice: ${e.message}", e)
-
-            // 오류 발생 시 기본 오디오 반환
-            try {
-                context.assets.open("error_audio.mp3").readBytes()
-            } catch (assetException: Exception) {
-                Log.e(TAG, "Error loading fallback audio: ${assetException.message}", assetException)
-                // 빈 오디오 반환
-                ByteArray(0)
-            }
+            generateDummyAudio(text.length)
         }
+    }
+
+
+    // 더미 오디오 데이터 생성 (테스트용)
+    private fun generateDummyAudio(textLength: Int): ByteArray {
+        // textLength에 비례하는 임의의 바이트 배열 생성
+        val size = 1000 + (textLength / 10)
+        val dummyAudio = ByteArray(size) { (Math.random() * 256).toInt().toByte() }
+
+        // 임시 파일에 저장 (실제 파일이 있어야 MediaPlayer가 작동함)
+        val fileName = "dummy_audio_${UUID.randomUUID()}.wav"
+        val audioDir = File(context.filesDir, "audio_files").apply {
+            if (!exists()) mkdirs()
+        }
+        val audioFile = File(audioDir, fileName)
+
+        try {
+            FileOutputStream(audioFile).use { it.write(dummyAudio) }
+            Log.d(TAG, "Dummy audio saved to: ${audioFile.absolutePath}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving dummy audio: ${e.message}", e)
+        }
+
+        return dummyAudio
     }
 
     private fun getElevenlabsVoiceId(voiceId: Long): String {
         // 음성 ID에 따라 Elevenlabs 음성 ID 결정
-        // 현재는 간단한 매핑만 구현
         return when (voiceId) {
             1L -> "21m00Tcm4TlvDq8ikWAM" // Rachel
             2L -> "AZnzlk1XvdvUeBnXmlld" // Domi
@@ -110,6 +110,8 @@ class TTSService(private val context: Context) {
                 prepare()
                 setOnCompletionListener {
                     this@TTSService.currentPosition = 0
+                    release()
+                    mediaPlayer = null
                 }
                 start()
             }
@@ -128,8 +130,10 @@ class TTSService(private val context: Context) {
             if (mediaPlayer?.isPlaying == true) {
                 currentPosition = mediaPlayer?.currentPosition ?: 0
                 mediaPlayer?.pause()
+                true
+            } else {
+                false
             }
-            true
         } catch (e: Exception) {
             Log.e(TAG, "Error pausing audio: ${e.message}", e)
             false
@@ -142,9 +146,10 @@ class TTSService(private val context: Context) {
                 if (!isPlaying) {
                     seekTo(currentPosition)
                     start()
+                    return true
                 }
             }
-            true
+            false
         } catch (e: Exception) {
             Log.e(TAG, "Error resuming audio: ${e.message}", e)
             false
@@ -182,5 +187,18 @@ class TTSService(private val context: Context) {
 
     fun isPlaying(): Boolean {
         return mediaPlayer?.isPlaying ?: false
+    }
+    fun calculateAudioDuration(audioPath: String): Int {
+        try {
+            val mediaPlayer = MediaPlayer()
+            mediaPlayer.setDataSource(audioPath)
+            mediaPlayer.prepare()
+            val duration = mediaPlayer.duration / 1000 // 초 단위로 변환
+            mediaPlayer.release()
+            return duration
+        } catch (e: Exception) {
+            Log.e(TAG, "Error calculating audio duration: ${e.message}", e)
+            return 0
+        }
     }
 }
