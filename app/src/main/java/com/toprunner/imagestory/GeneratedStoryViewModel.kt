@@ -27,6 +27,9 @@ data class StoryState(
 )
 
 class GeneratedStoryViewModel : ViewModel() {
+
+    // UI에서 이 데이터를 표시하거나 추가적인 처리가 필요하면 수행 가능
+
     private val _storyState = MutableStateFlow(StoryState())
     val storyState: StateFlow<StoryState> = _storyState.asStateFlow()
 
@@ -55,6 +58,10 @@ class GeneratedStoryViewModel : ViewModel() {
                 // 동화 엔티티 로드
                 val (fairyTale, _) = fairyTaleRepository.getFairyTaleById(storyId)
 
+                val attributeJson = JSONObject(fairyTale.attribute)
+                val averagePitch = attributeJson.getDouble("averagePitch")
+                val pitchStdDev = attributeJson.getDouble("pitchStdDev")
+
                 // 제목 설정
                 _storyState.value = _storyState.value.copy(storyTitle = fairyTale.title)
 
@@ -70,21 +77,16 @@ class GeneratedStoryViewModel : ViewModel() {
                     loadImage(imageEntity.image_path)
                 }
 
-                // 오디오 파일 경로 로드
-                try {
-                    val attributeJson = JSONObject(fairyTale.attribute)
-                    val audioPath = attributeJson.optString("audioPath", "")
-                    _storyState.value = _storyState.value.copy(audioPath = audioPath)
+                val audioPath = attributeJson.optString("audioPath", "")
+                _storyState.value = _storyState.value.copy(audioPath = audioPath)
 
-                    // 오디오 파일 길이 계산
-                    if (audioPath.isNotEmpty()) {
-                        _totalDuration.value = ttsService?.calculateAudioDuration(audioPath) ?: 0
-                    }
-                } catch (e: Exception) {
-                    Log.e("GeneratedStoryViewModel", "Error parsing attribute JSON: ${e.message}", e)
+                if (audioPath.isNotEmpty()) {
+                    _totalDuration.value = ttsService?.calculateAudioDuration(audioPath) ?: 0
                 }
 
                 _storyState.value = _storyState.value.copy(isLoading = false)
+
+
             } catch (e: Exception) {
                 Log.e("GeneratedStoryViewModel", "Error loading story: ${e.message}", e)
                 _storyState.value = _storyState.value.copy(
@@ -152,6 +154,12 @@ class GeneratedStoryViewModel : ViewModel() {
             }
         }
     }
+    fun seekTo(positionMs: Int) {
+        viewModelScope.launch {
+            ttsService?.seekTo(positionMs)
+        }
+    }
+
 
     private fun startProgressTracking() {
         viewModelScope.launch {
@@ -177,4 +185,40 @@ class GeneratedStoryViewModel : ViewModel() {
         ttsService?.stopAudio()
         ttsService = null
     }
+
+    fun toggleAudioPlayback() {
+        viewModelScope.launch {
+            _storyState.value.audioPath?.let { path ->
+                val currentPos = ttsService?.getCurrentPosition() ?: 0
+                if (_isPlaying.value) {
+                    // 재생 중이면 정지
+                    val paused = ttsService?.pauseAudio() ?: false
+                    if (paused) {
+                        _isPlaying.value = false
+                    } else {
+                        Log.e("GeneratedStoryViewModel", "Failed to pause audio")
+                    }
+                } else {
+                    val success = if (currentPos > 0) {
+                        // 이미 재생된 적이 있으면 resume
+                        ttsService?.resumeAudio() ?: false
+                    } else {
+                        // 처음 재생이면 playAudio() 호출
+                        ttsService?.playAudio(path) ?: false
+                    }
+                    if (success) {
+                        _isPlaying.value = true
+                        startProgressTracking()
+                    } else {
+                        Log.e("GeneratedStoryViewModel", "Failed to play audio")
+                    }
+                }
+            } ?: run {
+                Log.e("GeneratedStoryViewModel", "Audio path is empty")
+            }
+        }
+    }
+
+
+
 }

@@ -12,6 +12,6 @@ data class FairyTaleEntity(
     val image_id: Long,
     val text_id: Long,
     val music_id: Long,
-    val attribute: String, // 테마 정보를 JSON 형태로 저장
+    val attribute: String, // 추가 데이터를 JSON으로 저장
     val created_at: Long = System.currentTimeMillis()
 )

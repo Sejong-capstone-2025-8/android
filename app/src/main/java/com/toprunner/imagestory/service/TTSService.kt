@@ -22,6 +22,8 @@ class TTSService(private val context: Context) {
     private var currentPosition: Int = 0
     private var totalDuration: Int = 0
 
+
+
     companion object {
         private const val API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
         private val API_KEY = BuildConfig.ELEVENLABS_API_KEY
@@ -201,4 +203,16 @@ class TTSService(private val context: Context) {
             return 0
         }
     }
+    // TTSService.kt (추가)
+    fun seekTo(positionMs: Int): Boolean {
+        return try {
+            mediaPlayer?.seekTo(positionMs)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error seeking audio: ${e.message}", e)
+            false
+        }
+    }
+
+
 }

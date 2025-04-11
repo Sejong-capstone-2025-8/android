@@ -4,9 +4,12 @@ import android.content.Context
 import com.toprunner.imagestory.data.dao.FairyTaleDao
 import com.toprunner.imagestory.data.database.AppDatabase
 import com.toprunner.imagestory.data.entity.FairyTaleEntity
+import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.util.FileStorageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 class FairyTaleRepository(private val context: Context) {
     private val fairyTaleDao: FairyTaleDao = AppDatabase.getInstance(context).fairyTaleDao()
@@ -19,14 +22,19 @@ class FairyTaleRepository(private val context: Context) {
         textId: Long,
         musicId: Long,
         theme: String,
-        audioData: ByteArray
-    ): Long = withContext(Dispatchers.IO) {
-        // 음성 파일 저장 - 이미 VoiceRepository에서 저장된 음성을 사용할 것이지만
-        // 동화별로 다른 오디오 파일이 필요할 수 있으므로 추가 저장
+        audioData: ByteArray,
+        voiceFeatures: VoiceFeatures
+    ): Long {
         val audioPath = fileStorageManager.saveAudioFile(context, audioData)
 
         // 테마 정보를 attribute 필드에 저장
-        val attributeJson = "{\"theme\":\"$theme\", \"audioPath\":\"$audioPath\"}"
+        val attributeJson = JSONObject().apply {
+            put("theme", theme)
+            put("audioPath", audioPath)
+            put("averagePitch", voiceFeatures.averagePitch)
+            put("pitchStdDev", voiceFeatures.pitchStdDev)
+            put("mfccValues", JSONArray(voiceFeatures.mfccValues.map { JSONArray(it.toList()) }))
+        }.toString()
 
         // 데이터베이스에 저장
         val fairyTaleEntity = FairyTaleEntity(
@@ -40,7 +48,11 @@ class FairyTaleRepository(private val context: Context) {
         )
 
         // 데이터베이스에 삽입하고 ID 반환
-        fairyTaleDao.insertFairyTale(fairyTaleEntity)
+        return fairyTaleDao.insertFairyTale(fairyTaleEntity)
+    }
+
+    suspend fun insertFairyTale(fairyTale: FairyTaleEntity) {
+        fairyTaleDao.insertFairyTale(fairyTale)
     }
 
     suspend fun getFairyTaleById(fairyTaleId: Long): Pair<FairyTaleEntity, String> = withContext(Dispatchers.IO) {

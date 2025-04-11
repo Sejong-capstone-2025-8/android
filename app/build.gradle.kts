@@ -54,8 +54,9 @@ android {
 }
 
 dependencies {
-    implementation("androidx.appcompat:appcompat:1.6.1") // Example
-    implementation("com.google.android.material:material:1.11.0")
+
+    implementation("androidx.appcompat:appcompat:1.7.0") // Example
+    implementation("com.google.android.material:material:1.12.0")
 
     implementation(libs.jetbrains.kotlin.stdlib.jdk8)
     implementation("com.google.accompanist:accompanist-permissions:0.32.0") // 버전 다운그레이드
@@ -63,19 +64,19 @@ dependencies {
     implementation(libs.gson) // 최신 버전의 Gson
 
     // Room 라이브러리
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.7.0")
+    implementation("androidx.room:room-ktx:2.7.0")
+    kapt("androidx.room:room-compiler:2.7.0")
 
     // ViewModel & LiveData
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.7")
 
 
 
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
-    implementation ("androidx.navigation:navigation-compose:2.7.7")
+    implementation ("androidx.navigation:navigation-compose:2.8.9")
 
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.activity:activity-ktx:1.10.1")
@@ -89,12 +90,12 @@ dependencies {
     implementation("androidx.compose.material:material:1.7.8")
     implementation("io.coil-kt:coil-compose:2.7.0")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
 
 
     // 테스트 의존성
     testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.03.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
@@ -119,7 +120,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
 
-    implementation ("androidx.room:room-runtime:2.5.0")
-    kapt ("androidx.room:room-compiler:2.5.0")
-    implementation ("androidx.room:room-ktx:2.5.0")
+    implementation ("androidx.room:room-runtime:2.7.0")
+    kapt ("androidx.room:room-compiler:2.7.0")
+    implementation ("androidx.room:room-ktx:2.7.0")
 }

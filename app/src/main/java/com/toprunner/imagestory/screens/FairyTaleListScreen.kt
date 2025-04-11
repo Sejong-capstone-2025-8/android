@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -20,44 +21,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.toprunner.imagestory.R
+import com.toprunner.imagestory.data.database.AppDatabase
 import com.toprunner.imagestory.data.entity.FairyTaleEntity
 import com.toprunner.imagestory.navigation.NavRoute
+import com.toprunner.imagestory.repository.FairyTaleRepository
+import com.toprunner.imagestory.viewmodel.FairyTaleViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun FairyTaleListScreen(navController: NavController) {
     val backgroundColor = Color(0xFFFFFBF0) // 밝은 크림색 배경
-    var isLoading by remember { mutableStateOf(false) }
-    var fairyTales by remember { mutableStateOf<List<FairyTaleEntity>>(emptyList()) }
 
-    // 샘플 데이터 로드
+
+    val context = LocalContext.current
+    val db = AppDatabase.getInstance(context)
+    val fairyTaleViewModel = remember {
+        FairyTaleViewModel(FairyTaleRepository(context))
+    }
+    val fairyTales by fairyTaleViewModel.fairyTales.collectAsState()
+    val isLoading by fairyTaleViewModel.isLoading.collectAsState()
+
+
     LaunchedEffect(Unit) {
-        isLoading = true
-        // 실제 앱에서는 repository에서 데이터를 가져오는 로직으로 대체
-        fairyTales = listOf(
-            FairyTaleEntity(
-                fairy_tales_id = 1,
-                title = "마법의 숲속 모험",
-                voice_id = 1,
-                image_id = 1,
-                text_id = 1,
-                music_id = 1,
-                attribute = "{\"theme\":\"fantasy\", \"audioPath\":\"sample\"}",
-                created_at = System.currentTimeMillis()
-            ),
-            FairyTaleEntity(
-                fairy_tales_id = 2,
-                title = "별빛 너머의 우주여행",
-                voice_id = 2,
-                image_id = 2,
-                text_id = 2,
-                music_id = 2,
-                attribute = "{\"theme\":\"sf\", \"audioPath\":\"sample\"}",
-                created_at = System.currentTimeMillis() - 86400000 // 1 day ago
-            )
-        )
-        isLoading = false
+        fairyTaleViewModel.loadFairyTales()
     }
 
     Column(
@@ -132,8 +119,12 @@ fun FairyTaleListScreen(navController: NavController) {
                         FairyTaleItemCard(
                             fairyTale = fairyTale,
                             onClick = {
-                                // 동화 상세 화면으로 이동
                                 navController.navigate(NavRoute.GeneratedStory.createRoute(fairyTale.fairy_tales_id))
+                            },
+                            onDelete = {
+                                // 삭제 전 확인 다이얼로그(간단히 구현)
+                                // 필요시 AlertDialog를 보여줄 수 있음
+                                fairyTaleViewModel.deleteFairyTale(fairyTale.fairy_tales_id)
                             }
                         )
                     }
@@ -144,7 +135,10 @@ fun FairyTaleListScreen(navController: NavController) {
 }
 
 @Composable
-fun FairyTaleItemCard(fairyTale: FairyTaleEntity, onClick: () -> Unit) {
+fun FairyTaleItemCard(
+    fairyTale: FairyTaleEntity,
+    onClick: () -> Unit,
+    onDelete: () -> Unit ) {
     val dateFormat = SimpleDateFormat("yyyy.MM.dd", Locale.getDefault())
     val formattedDate = dateFormat.format(Date(fairyTale.created_at))
 
@@ -186,9 +180,7 @@ fun FairyTaleItemCard(fairyTale: FairyTaleEntity, onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(16.dp))
 
             // 텍스트 정보 (제목, 날짜)
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = fairyTale.title,
                     fontSize = 16.sp,
@@ -196,9 +188,7 @@ fun FairyTaleItemCard(fairyTale: FairyTaleEntity, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
                 Spacer(modifier = Modifier.height(4.dp))
-
                 Text(
                     text = formattedDate,
                     fontSize = 14.sp,
@@ -206,7 +196,19 @@ fun FairyTaleItemCard(fairyTale: FairyTaleEntity, onClick: () -> Unit) {
                 )
             }
 
-            // 화살표 아이콘
+            // 삭제 아이콘
+            Icon(
+                painter = painterResource(id = R.drawable.ic_delete),
+                contentDescription = "Delete",
+                tint = Color.Red,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable { onDelete() }
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // 화살표 아이콘 (상세화면 이동)
             Icon(
                 painter = painterResource(id = R.drawable.ic_arrow_forward),
                 contentDescription = "Open",
