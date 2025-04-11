@@ -8,3 +8,15 @@ plugins {
 }
 
 
+//dependencyResolutionManagement {
+//    repositories {
+//        google()
+//        mavenCentral()
+//    }
+//}
+
+buildscript {
+    dependencies {
+        classpath("com.google.gms:google-services:4.4.0") // <-- 이 줄 추가!
+    }
+}
