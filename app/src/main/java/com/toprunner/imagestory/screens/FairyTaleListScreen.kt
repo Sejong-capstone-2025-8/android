@@ -24,6 +24,18 @@ import com.toprunner.imagestory.data.entity.FairyTaleEntity
 import com.toprunner.imagestory.navigation.NavRoute
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+
+//BoxWithConstraints 사용으로 화면 크기 대응
+//padding 비율 계산
+//navigationBars 고려한 LazyColumn padding
+//TextOverflow, maxLines 등으로 텍스트 깨짐 방지
 
 @Composable
 fun FairyTaleListScreen(navController: NavController) {
@@ -31,10 +43,8 @@ fun FairyTaleListScreen(navController: NavController) {
     var isLoading by remember { mutableStateOf(false) }
     var fairyTales by remember { mutableStateOf<List<FairyTaleEntity>>(emptyList()) }
 
-    // 샘플 데이터 로드
     LaunchedEffect(Unit) {
         isLoading = true
-        // 실제 앱에서는 repository에서 데이터를 가져오는 로직으로 대체
         fairyTales = listOf(
             FairyTaleEntity(
                 fairy_tales_id = 1,

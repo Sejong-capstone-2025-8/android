@@ -1,5 +1,6 @@
 package com.toprunner.imagestory.screens
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,14 +19,45 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.toprunner.imagestory.R
 
+@Composable
+fun AutoResizingText(
+    text: String,
+    modifier: Modifier = Modifier,
+    maxFontSize: TextUnit = 14.sp,
+    minFontSize: TextUnit = 10.sp,
+    maxLines: Int = 1,
+    style: TextStyle = TextStyle.Default
+) {
+    var currentFontSize by remember(text) { mutableStateOf(maxFontSize) }
+
+    Text(
+        text = text,
+        modifier = modifier,
+        fontSize = currentFontSize,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { layoutResult ->
+            if (layoutResult.hasVisualOverflow && currentFontSize > minFontSize) {
+                currentFontSize *= 0.9f
+            }
+        },
+        style = style.copy(fontSize = currentFontSize)
+    )
+}
+
+
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun HomeScreen(
     capturedImageBitmap: Bitmap?,
@@ -40,62 +72,73 @@ fun HomeScreen(
     val themeOptions = remember { listOf("판타지", "사랑", "SF", "공포", "코미디") }
     val themeButtonText = selectedTheme ?: "테마 선택"
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenWidth = maxWidth
+        val isWideScreen = screenWidth > 600.dp
+        val imageHeight = if (isWideScreen) 550.dp else 450.dp
+        val buttonSpacing = if (isWideScreen) 16.dp else 8.dp
+        val sidePadding = if (isWideScreen) 32.dp else 16.dp
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFFFFFBF0))
         ) {
-            // 상단 바 (헤더)
+            // 상단 바
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 22.dp)
+                    .padding(horizontal = sidePadding, vertical = 22.dp)
             ) {
                 Text(
                     text = "홈",
                     modifier = Modifier.align(Alignment.Center),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        textAlign = TextAlign.Center
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+
             HorizontalDivider(
                 modifier = Modifier.fillMaxWidth(),
                 thickness = 1.5.dp,
                 color = Color(0xFFE0E0E0)
             )
 
-            // 메인 이미지
+            // 이미지
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(horizontal = sidePadding, vertical = 16.dp)
             ) {
                 if (capturedImageBitmap != null) {
+                    val imageRatio = capturedImageBitmap.width.toFloat() / capturedImageBitmap.height
                     Image(
                         bitmap = capturedImageBitmap.asImageBitmap(),
                         contentDescription = "Captured Image",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(350.dp)
+                            .aspectRatio(imageRatio)
                             .clip(RoundedCornerShape(12.dp))
                             .shadow(4.dp, RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                 } else {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(350.dp)
+                            .height(imageHeight)
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFFF5F5F5))
                             .shadow(4.dp, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_bookmark),
                                 contentDescription = "No Image",
@@ -113,121 +156,55 @@ fun HomeScreen(
                 }
             }
 
-            // 버튼 영역
+            // 버튼들
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = sidePadding, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(buttonSpacing),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 첫 번째 행: 사진 찍기, 갤러리에서 불러오기, 테마 버튼
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(buttonSpacing)
                 ) {
-                    // 사진 찍기 버튼
+                    val buttonModifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+
                     Button(
-                        onClick = { onTakePhotoClicked() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFEE566)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
+                        onClick = onTakePhotoClicked,
+                        modifier = buttonModifier,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566)),
+                        shape = RoundedCornerShape(7.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_home),
-                                contentDescription = "사진 찍기",
-                                tint = Color.Black,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "사진 찍기",
-                                color = Color.Black,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        }
+                        IconText(iconId = R.drawable.ic_home, label = "사진 찍기")
                     }
 
-                    // 갤러리에서 불러오기 버튼
                     Button(
-                        onClick = { onPickImageClicked() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFEE566)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
+                        onClick = onPickImageClicked,
+                        modifier = buttonModifier,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566)),
+                        shape = RoundedCornerShape(7.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_bookmark),
-                                contentDescription = "갤러리",
-                                tint = Color.Black,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "갤러리",
-                                color = Color.Black,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        }
+                        IconText(iconId = R.drawable.ic_bookmark, label = "갤러리")
                     }
 
-                    // 테마 버튼
                     Button(
                         onClick = { showThemeDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFEE566)
-                        ),
+                        modifier = buttonModifier,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566)),
                         shape = RoundedCornerShape(8.dp),
                         enabled = !isLoading
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_settings),
-                                contentDescription = "테마 선택",
-                                tint = Color.Black,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = themeButtonText,
-                                color = Color.Black,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        IconText(iconId = R.drawable.ic_settings, label = themeButtonText)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 동화 생성하기 버튼
                 Button(
-                    onClick = { onGenerateStoryClicked() },
+                    onClick = onGenerateStoryClicked,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -251,7 +228,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.weight(1f))
         }
 
-        // 로딩 표시
+        // 로딩 중일 때
         if (isLoading) {
             Box(
                 modifier = Modifier
@@ -259,10 +236,7 @@ fun HomeScreen(
                     .background(Color.Black.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(
                         color = Color.White,
                         modifier = Modifier.size(60.dp)
@@ -276,75 +250,89 @@ fun HomeScreen(
                 }
             }
         }
-    }
 
-    // 테마 선택 대화상자
-    if (showThemeDialog) {
-        Dialog(onDismissRequest = { showThemeDialog = false }) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight(),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                shadowElevation = 8.dp
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+        // 테마 선택 Dialog
+        if (showThemeDialog) {
+            Dialog(onDismissRequest = { showThemeDialog = false }) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 8.dp
                 ) {
-                    Text(
-                        text = "테마 선택",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "테마 선택",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
 
-                    HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(250.dp)
-                    ) {
-                        items(themeOptions) { theme ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onThemeSelected(theme)
-                                        showThemeDialog = false
-                                    }
-                                    .padding(vertical = 12.dp, horizontal = 8.dp)
-                            ) {
-                                Text(
-                                    text = theme,
-                                    fontSize = 16.sp,
-                                    color = Color.Black
-                                )
-                            }
-                            HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 0.5.dp)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(
-                            onClick = { showThemeDialog = false }
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(250.dp)
                         ) {
-                            Text(
-                                text = "취소",
-                                color = Color.Gray,
-                                fontWeight = FontWeight.Bold
-                            )
+                            items(themeOptions) { theme ->
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onThemeSelected(theme)
+                                            showThemeDialog = false
+                                        }
+                                        .padding(vertical = 12.dp, horizontal = 8.dp)
+                                ) {
+                                    Text(text = theme, fontSize = 16.sp, color = Color.Black)
+                                }
+                                HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 0.5.dp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { showThemeDialog = false }) {
+                                Text("취소", color = Color.Gray, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun IconText(iconId: Int, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            painter = painterResource(id = iconId),
+            contentDescription = label,
+            tint = Color.Black,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        AutoResizingText(
+            text = label,
+            maxFontSize = 14.sp,
+            minFontSize = 10.sp,
+            modifier = Modifier.weight(1f), // 공간을 충분히 사용하게
+            style = TextStyle(
+                color = Color.Black,
+                fontWeight = FontWeight.Bold
+            )
+        )
     }
 }

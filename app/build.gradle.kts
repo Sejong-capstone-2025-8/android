@@ -71,6 +71,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
 
 
+    implementation("androidx.compose.foundation:foundation:1.6.0") // 또는 BOM으로 관리
 
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
