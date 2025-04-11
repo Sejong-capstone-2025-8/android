@@ -41,6 +41,8 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
+import com.toprunner.imagestory.screens.LoginScreen
+
 class MainActivity : ComponentActivity() {
 
     // 이미지 관련 상태
@@ -132,10 +134,30 @@ class MainActivity : ComponentActivity() {
                             //.navigationBarsPadding()
                     ){NavHost(
                         navController = navController,
-                        startDestination = NavRoute.Home.route,
+//                        startDestination = NavRoute.Home.route,
+                        startDestination = NavRoute.Login.route,
                         modifier = Modifier.fillMaxSize()
 
                     ) {
+                        //login page
+                        composable(NavRoute.Login.route) {
+                            LoginScreen(
+                                onLoginClicked = { email, password ->
+                                    Log.d("Login", "이메일: $email, 비밀번호: $password")
+                                    // TODO: 로그인 성공 시 Home으로 이동
+                                    // 임시로 홈 이동 처리
+                                    navController.navigate(NavRoute.Home.route) {
+                                        popUpTo(NavRoute.Login.route) { inclusive = true } // 로그인 화면 제거
+                                    }
+                                },
+                                onSignUpClicked = {
+                                    Log.d("Login", "회원가입 클릭됨")
+                                    // TODO: 회원가입 화면으로 이동할 수 있음
+                                    Toast.makeText(this@MainActivity, "회원가입 기능은 준비 중입니다.", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+
                         // 홈 화면
                         composable(NavRoute.Home.route) {
                             HomeScreen(
@@ -351,4 +373,19 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+
+@Composable
+fun MyApp() {
+    LoginScreen(
+        onLoginClicked = { email, password ->
+            Log.d("Login", "이메일: $email, 비밀번호: $password")
+            // 예: 서버 요청 or Firebase 로그인 처리
+        },
+        onSignUpClicked = {
+            Log.d("Login", "회원가입 클릭됨")
+            // 예: 회원가입 화면 이동
+        }
+    )
 }

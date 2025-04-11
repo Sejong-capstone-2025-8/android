@@ -1,6 +1,7 @@
 package com.toprunner.imagestory.navigation
 
 sealed class NavRoute(val route: String) {
+    object Login : NavRoute("login")
     object Home : NavRoute("home")
     object FairyTaleList : NavRoute("fairytale_list")
     object VoiceList : NavRoute("voice_list")
