@@ -1,6 +1,7 @@
 package com.toprunner.imagestory.screens
 
 import android.Manifest
+import android.media.MediaRecorder
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,9 +27,27 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.toprunner.imagestory.R
+import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.navigation.NavRoute
+import com.toprunner.imagestory.repository.VoiceRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+
+
+
+
+class PitchAndMfccAnalyzer {
+    fun analyzeAudio(filePath: String): VoiceFeatures {
+        // 실제 구현: 파일을 열어 프레임 단위로 피치와 MFCC값 계산
+        val averagePitch = 150.0
+        val pitchStdDev = 10.0
+        val mfccValues = listOf(DoubleArray(13) { 0.0 }, DoubleArray(13) { 1.0 })
+        return VoiceFeatures(averagePitch, pitchStdDev, mfccValues)
+    }
+}
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -39,7 +58,7 @@ fun VoiceRecordingScreen(
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    // 녹음 상태
+    // 녹음 상태 및 진행 변수
     var isRecording by remember { mutableStateOf(false) }
     var recordingTimeSeconds by remember { mutableStateOf(0) }
     var recordingProgress by remember { mutableStateOf(0) }
@@ -50,10 +69,17 @@ fun VoiceRecordingScreen(
     // 마이크 권한 체크
     val microphonePermissionState = rememberPermissionState(permission = Manifest.permission.RECORD_AUDIO)
 
-    // 녹음 시간 형식 지정
+    // 녹음 시간 표시
     val minutes = recordingTimeSeconds / 60
     val seconds = recordingTimeSeconds % 60
     val timeText = String.format("%d:%02d", minutes, seconds)
+
+    // MediaRecorder 및 기록 파일 경로
+    var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var recordFilePath by remember { mutableStateOf<String?>(null) }
+
+    // 오디오 분석 도구 (실제 구현 시 TarsosDSP 등으로 대체)
+    val pitchAnalyzer = remember { PitchAndMfccAnalyzer() }
 
     // 권한 요청
     LaunchedEffect(Unit) {
@@ -62,18 +88,16 @@ fun VoiceRecordingScreen(
         }
     }
 
-    // 녹음 시간 업데이트
+    // 녹음 시간 업데이트 (녹음 중이면 1초마다 업데이트)
     LaunchedEffect(isRecording) {
         if (isRecording) {
             recordingTimeSeconds = 0
             recordingProgress = 0
-
             while (isRecording) {
                 delay(1000)
                 recordingTimeSeconds++
-                recordingProgress = (recordingTimeSeconds * 100 / 60).coerceAtMost(100) // 최대 60초
-
-                // 60초 지나면 자동 녹음 중지
+                recordingProgress = (recordingTimeSeconds * 100 / 60).coerceAtMost(100)
+                // 60초가 지나면 자동 중지
                 if (recordingTimeSeconds >= 60) {
                     isRecording = false
                 }
@@ -81,41 +105,105 @@ fun VoiceRecordingScreen(
         }
     }
 
-    // 녹음 시작/중지 함수
+    // 실제 녹음 시작 함수
+    fun startRecording() {
+        try {
+            val outputDir = context.filesDir
+            val fileName = "record_${System.currentTimeMillis()}.wav" // WAV 또는 3GP 포맷 사용 가능
+            val outFile = File(outputDir, fileName)
+            recordFilePath = outFile.absolutePath
+
+            mediaRecorder = MediaRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                // 여기서는 THREE_GPP 포맷과 AMR_NB 인코더를 사용합니다.
+                setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                setOutputFile(recordFilePath)
+                prepare()
+                start()
+            }
+            isRecording = true
+            Toast.makeText(context, "녹음을 시작합니다.", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "녹음 시작 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // 실제 녹음 중지 함수
+    fun stopRecording() {
+        try {
+            mediaRecorder?.apply {
+                stop()
+                reset()
+                release()
+            }
+            mediaRecorder = null
+            isRecording = false
+            Toast.makeText(context, "녹음이 중지되었습니다.", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "녹음 중지 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // 녹음 시작/중지 토글 함수 (버튼 클릭 시 호출)
     val toggleRecording = {
         if (!microphonePermissionState.status.isGranted) {
             Toast.makeText(context, "녹음을 위해 마이크 권한이 필요합니다", Toast.LENGTH_SHORT).show()
             microphonePermissionState.launchPermissionRequest()
         } else {
-            isRecording = !isRecording
-
-            if (isRecording) {
-                Toast.makeText(context, "녹음이 시작되었습니다", Toast.LENGTH_SHORT).show()
-                // TODO: 실제 녹음 시작 로직 구현
+            if (!isRecording) {
+                startRecording()
             } else {
-                Toast.makeText(context, "녹음이 중지되었습니다", Toast.LENGTH_SHORT).show()
-                // TODO: 실제 녹음 중지 로직 구현
+                stopRecording()
             }
         }
     }
 
-    // 녹음 완료 처리
-    val completeRecording = {
+    // 녹음 완료 처리 함수
+    fun completeRecording() {
         if (isRecording) {
-            isRecording = false
+            stopRecording()
+        }
+        // 녹음된 시간과 파일 경로가 유효한지 확인
+        if (recordingTimeSeconds <= 0 || recordFilePath.isNullOrEmpty()) {
+            Toast.makeText(context, "녹음이 유효하지 않습니다.", Toast.LENGTH_SHORT).show()
+            return
         }
 
-        if (recordingTimeSeconds > 0) {
-            // TODO: 실제 녹음 파일 저장 및 처리 로직 구현
-            Toast.makeText(context, "목소리가 저장되었습니다", Toast.LENGTH_SHORT).show()
-            navController.navigate(NavRoute.VoiceList.route) {
-                popUpTo(NavRoute.VoiceList.route) { inclusive = true }
+        scope.launch(Dispatchers.IO) {
+            try {
+                // 실제 녹음된 파일에 대해 피치, MFCC 분석
+                val analysisResult = pitchAnalyzer.analyzeAudio(recordFilePath!!)
+
+                // DB에 저장 (VoiceRepository 사용)
+                val voiceRepo = VoiceRepository(context)
+                val voiceTitle = "내 목소리 - ${System.currentTimeMillis()}"
+                // attribute JSON에는 필요한 값만 저장 (추후 기능 확장 가능)
+                val attributeJson = "{\"voiceType\":\"custom\"}"
+
+                val fileBytes = File(recordFilePath!!).readBytes()
+                val voiceId = voiceRepo.saveVoice(
+                    title = voiceTitle,
+                    attributeJson = attributeJson,
+                    audioData = fileBytes,
+                    voiceFeatures = analysisResult
+                )
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "목소리가 저장되었습니다 (ID: $voiceId)", Toast.LENGTH_SHORT).show()
+                    navController.navigate(NavRoute.VoiceList.route) {
+                        popUpTo(NavRoute.VoiceList.route) { inclusive = true }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "녹음 분석 오류: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
-        } else {
-            Toast.makeText(context, "녹음을 먼저 완료해주세요", Toast.LENGTH_SHORT).show()
         }
     }
 
+    // UI 구성
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -209,9 +297,7 @@ fun VoiceRecordingScreen(
             colors = CardDefaults.cardColors(
                 containerColor = Color.White
             ),
-            elevation = CardDefaults.cardElevation(
-                defaultElevation = 2.dp
-            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             shape = RoundedCornerShape(8.dp)
         ) {
             Box(
@@ -230,7 +316,7 @@ fun VoiceRecordingScreen(
             }
         }
 
-        // 녹음 컨트롤 버튼
+        // 녹음 컨트롤 버튼 (녹음 시작/정지)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -238,7 +324,6 @@ fun VoiceRecordingScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 녹음 시작/정지 버튼
             FloatingActionButton(
                 onClick = { toggleRecording() },
                 modifier = Modifier.size(64.dp),

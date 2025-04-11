@@ -3,6 +3,7 @@ package com.toprunner.imagestory.controller
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.toprunner.imagestory.model.Story
 import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.repository.FairyTaleRepository
 import com.toprunner.imagestory.repository.ImageRepository
@@ -13,6 +14,7 @@ import com.toprunner.imagestory.service.TTSService
 import com.toprunner.imagestory.util.VoiceFeaturesUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONException
 import org.json.JSONObject
 
 class StoryCreationController(private val context: Context) {
@@ -50,15 +52,18 @@ class StoryCreationController(private val context: Context) {
             Log.d(TAG, "GPT API returned response successfully")
 
             // 동화 내용 처리
-            val storyData = processGPTResponse(gptResponse)
-            val title = storyData.first
-            val storyText = storyData.second
+            val storyData = parseStoryResponse(gptResponse)
 
+            // 이후 storyData 사용
+            val title = storyData.title
+            val storyText = storyData.text
+            val voiceFeatures = VoiceFeatures(
+                averagePitch = storyData.averagePitch,
+                pitchStdDev = storyData.pitchStdDev,
+                mfccValues = storyData.mfccValues.map { it.toDoubleArray() } // 타입 맞추기
+            )
             Log.d(TAG, "Processed story with title: $title and text length: ${storyText.length}")
-
-            // 음성 특성 추출
-            val voiceFeatures = extractVoiceFeatures(gptResponse)
-            Log.d(TAG, "Extracted voice features")
+            Log.d(TAG, "Extracted voice features: $voiceFeatures")
 
             // 동화에 적합한 음성 추천
             val voiceId = voiceRepository.recommendVoice(englishTheme, voiceFeatures)
@@ -88,7 +93,8 @@ class StoryCreationController(private val context: Context) {
                 textId = textId,
                 musicId = defaultMusicId, // 기본 음악 ID
                 theme = englishTheme,
-                audioData = audioData
+                audioData = audioData,
+                voiceFeatures = voiceFeatures
             )
 
             Log.d(TAG, "Fairy tale saved with ID: $fairyTaleId")
@@ -223,4 +229,42 @@ class StoryCreationController(private val context: Context) {
             return ByteArray(1000)
         }
     }
+
+    private fun parseStoryResponse(responseData: String): Story {
+        try {
+            val jsonResponse = JSONObject(responseData)
+            val choices = jsonResponse.getJSONArray("choices")
+            if (choices.length() > 0) {
+                val message = choices.getJSONObject(0).getJSONObject("message")
+                var content = message.optString("content", "")
+
+                // JSON 코드블럭 제거
+                if (content.startsWith("```json")) {
+                    content = content.removePrefix("```json").removeSuffix("```").trim()
+                }
+
+                val storyJson = JSONObject(content)
+
+                return Story(
+                    title = storyJson.getString("title"),
+                    theme = storyJson.getString("theme"),
+                    text = storyJson.getString("text"),
+                    averagePitch = storyJson.getDouble("averagePitch"),
+                    pitchStdDev = storyJson.getDouble("pitchStdDev"),
+                    mfccValues = (0 until storyJson.getJSONArray("mfccValues").length()).map { i ->
+                        storyJson.getJSONArray("mfccValues").getJSONArray(i).let { innerArray ->
+                            List(innerArray.length()) { innerArray.getDouble(it) }
+                        }
+                    }
+                )
+            } else {
+                throw JSONException("No choices found in GPT response")
+            }
+        } catch (e: JSONException) {
+            Log.e(TAG, "Error parsing GPT response: ${e.message}", e)
+            throw e
+        }
+    }
+
+
 }

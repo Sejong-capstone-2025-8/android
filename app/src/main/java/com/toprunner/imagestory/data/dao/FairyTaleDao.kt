@@ -19,4 +19,6 @@ interface FairyTaleDao {
 
     @Update
     suspend fun updateFairyTale(fairyTaleEntity: FairyTaleEntity): Int
+
+
 }
