@@ -45,6 +45,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFFFFFBF0))
+            
         ) {
             // 상단 바 (헤더)
             Box(
