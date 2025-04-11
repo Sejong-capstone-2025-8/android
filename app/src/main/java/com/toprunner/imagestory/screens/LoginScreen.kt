@@ -28,106 +28,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.toprunner.imagestory.R
 import android.util.Log
-//import android.widget.Toast
-//import androidx.compose.foundation.layout.*
-//import androidx.compose.foundation.text.KeyboardOptions
-//import androidx.compose.material3.*
-//import androidx.compose.runtime.*
-//import androidx.compose.ui.platform.LocalContext
-//import androidx.compose.ui.text.input.KeyboardType
-//import androidx.compose.ui.unit.dp
-//import androidx.navigation.NavController
-//import com.google.firebase.auth.FirebaseAuth
-//import com.toprunner.imagestory.navigation.NavRoute
 
-//@Composable
-//fun LoginScreen(navController: NavController) {
-//    val context = LocalContext.current
-//    val auth = remember { FirebaseAuth.getInstance() }
-//
-//    var email by remember { mutableStateOf("") }
-//    var password by remember { mutableStateOf("") }
-//    var isLoading by remember { mutableStateOf(false) }
-//
-//    Column(
-//        modifier = Modifier
-//            .fillMaxSize()
-//            .padding(32.dp),
-//        verticalArrangement = Arrangement.Center
-//    ) {
-//        Text("로그인", style = MaterialTheme.typography.headlineMedium)
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        OutlinedTextField(
-//            value = email,
-//            onValueChange = { email = it },
-//            label = { Text("이메일") },
-//            singleLine = true,
-//            modifier = Modifier.fillMaxWidth()
-//        )
-//
-//        Spacer(modifier = Modifier.height(8.dp))
-//
-//        OutlinedTextField(
-//            value = password,
-//            onValueChange = { password = it },
-//            label = { Text("비밀번호") },
-//            singleLine = true,
-//            visualTransformation = PasswordVisualTransformation(),
-//            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-//            modifier = Modifier.fillMaxWidth()
-//        )
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        Button(
-//            onClick = {
-//                isLoading = true
-//                auth.signInWithEmailAndPassword(email, password)
-//                    .addOnCompleteListener { task ->
-//                        isLoading = false
-//                        if (task.isSuccessful) {
-//                            Toast.makeText(context, "로그인 성공!", Toast.LENGTH_SHORT).show()
-//                            navController.navigate(NavRoute.Home.route) {
-//                                popUpTo(NavRoute.Login.route) { inclusive = true }
-//                            }
-//                        } else {
-//                            Toast.makeText(context, "로그인 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
-//                            Log.e("LoginScreen", "Login failed", task.exception)
-//                        }
-//                    }
-//            },
-//            enabled = !isLoading,
-//            modifier = Modifier.fillMaxWidth()
-//        ) {
-//            Text("로그인")
-//        }
-//
-//        Spacer(modifier = Modifier.height(8.dp))
-//
-//        TextButton(
-//            onClick = {
-//                // 간단한 회원가입 예시
-//                if (email.isNotBlank() && password.isNotBlank()) {
-//                    auth.createUserWithEmailAndPassword(email, password)
-//                        .addOnCompleteListener { task ->
-//                            if (task.isSuccessful) {
-//                                Toast.makeText(context, "회원가입 성공! 로그인하세요.", Toast.LENGTH_SHORT).show()
-//                            } else {
-//                                Toast.makeText(context, "회원가입 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
-//                            }
-//                        }
-//                } else {
-//                    Toast.makeText(context, "이메일과 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show()
-//                }
-//            },
-//            modifier = Modifier.fillMaxWidth()
-//        ) {
-//            Text("회원가입")
-//        }
-//    }
-//}
+//import android.widget.Toast
+//import androidx.compose.ui.platform.LocalContext
+//import com.google.firebase.auth.FirebaseAuth
+//import androidx.navigation.NavController
+//import androidx.compose.runtime.Composable
+//import androidx.navigation.NavHostController
+//import androidx.navigation.compose.NavHost
+//import androidx.navigation.compose.composable
+//import androidx.navigation.compose.rememberNavController
 
 
 @Composable
@@ -192,7 +102,6 @@ fun LoginScreen(
         }
     }
 }
-
 @Composable
 fun MyApp() {
     LoginScreen(
@@ -216,3 +125,123 @@ fun LoginScreenPreview() {
         onSignUpClicked = { }
     )
 }
+
+//@Composable
+//fun LoginScreen(navController: NavController) {
+//    val context = LocalContext.current
+//    val auth = remember { FirebaseAuth.getInstance() }
+//
+//    var email by remember { mutableStateOf("") }
+//    var password by remember { mutableStateOf("") }
+//    var isLoading by remember { mutableStateOf(false) }
+//
+//    Column(
+//        modifier = Modifier
+//            .fillMaxSize()
+//            .padding(24.dp),
+//        verticalArrangement = Arrangement.Center,
+//        horizontalAlignment = Alignment.CenterHorizontally
+//    ) {
+//        Text("로그인", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+//
+//        Spacer(modifier = Modifier.height(24.dp))
+//
+//        Image(
+//            painter = painterResource(id = R.drawable.example_image),
+//            contentDescription = "앱 로고",
+//            modifier = Modifier
+//                .fillMaxWidth(1f)
+//                .aspectRatio(1f)
+//                .padding(bottom = 20.dp)
+//        )
+//
+//        OutlinedTextField(
+//            value = email,
+//            onValueChange = { email = it },
+//            label = { Text("이메일") },
+//            modifier = Modifier.fillMaxWidth()
+//        )
+//
+//        Spacer(modifier = Modifier.height(16.dp))
+//
+//        OutlinedTextField(
+//            value = password,
+//            onValueChange = { password = it },
+//            label = { Text("비밀번호") },
+//            visualTransformation = PasswordVisualTransformation(),
+//            modifier = Modifier.fillMaxWidth()
+//        )
+//
+//        Spacer(modifier = Modifier.height(24.dp))
+//
+//        Button(
+//            onClick = {
+//                isLoading = true
+//                auth.signInWithEmailAndPassword(email, password)
+//                    .addOnCompleteListener { task ->
+//                        isLoading = false
+//                        if (task.isSuccessful) {
+//                            Toast.makeText(context, "로그인 성공!", Toast.LENGTH_SHORT).show()
+//                            navController.navigate("home") { // 네비게이션 경로에 맞게 수정
+//                                popUpTo("login") { inclusive = true }
+//                            }
+//                        } else {
+//                            Toast.makeText(context, "로그인 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+//                        }
+//                    }
+//            },
+//            enabled = !isLoading,
+//            modifier = Modifier.fillMaxWidth()
+//        ) {
+//            Text("로그인")
+//        }
+//
+//        Spacer(modifier = Modifier.height(12.dp))
+//
+//        TextButton(
+//            onClick = {
+//                // 회원가입 로직
+//                if (email.isNotBlank() && password.isNotBlank()) {
+//                    auth.createUserWithEmailAndPassword(email, password)
+//                        .addOnCompleteListener { task ->
+//                            if (task.isSuccessful) {
+//                                Toast.makeText(context, "회원가입 성공!", Toast.LENGTH_SHORT).show()
+//                            } else {
+//                                Toast.makeText(context, "회원가입 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+//                            }
+//                        }
+//                } else {
+//                    Toast.makeText(context, "이메일과 비밀번호를 입력하세요", Toast.LENGTH_SHORT).show()
+//                }
+//            }
+//        ) {
+//            Text("회원가입")
+//        }
+//    }
+//}
+//
+//import androidx.navigation.compose.rememberNavController
+//
+//@Composable
+//fun MyApp() {
+//    val navController = rememberNavController()
+//
+//    // 예시 네비게이션 구성
+//    androidx.navigation.compose.NavHost(
+//        navController = navController,
+//        startDestination = "login"
+//    ) {
+//        composable("login") {
+//            LoginScreen(navController = navController)
+//        }
+//        composable("home") {
+//            HomeScreen() // 홈 화면 Composable 정의 필요
+//        }
+//    }
+//}
+//@Preview(showBackground = true)
+//@Composable
+//fun LoginScreenPreview() {
+//    val fakeNavController = rememberNavController()
+//    LoginScreen(navController = fakeNavController)
+//}
