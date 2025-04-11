@@ -23,20 +23,67 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.toprunner.imagestory.R
 import com.toprunner.imagestory.navigation.NavRoute
-
 @Composable
-fun SettingsScreen(navController: NavController,
-                   onLogoutClicked: () -> Unit = {
-                       // 기본 로그아웃 처리 로직
-                       navController.navigate(NavRoute.Home.route) {
-                           popUpTo(NavRoute.Home.route) { inclusive = true }
-                       }
-                   }
+fun SettingsItemCard(icon: Int, title: String, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(id = icon),
+                contentDescription = title,
+                tint = Color(0xFF9C8A54),
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                color = Color.Black,
+                modifier = Modifier.weight(1f)
+            )
+
+            Icon(
+                painter = painterResource(id = R.drawable.ic_arrow_forward),
+                contentDescription = "More",
+                tint = Color.Gray,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+@Composable
+fun SettingsScreen(
+    navController: NavController? = null,
+    onLogoutClicked: () -> Unit = {
+        // 기본 로그아웃 처리 로직
+        navController?.navigate(NavRoute.Login.route) {
+            popUpTo(NavRoute.Home.route) { inclusive = true }
+        }
+    }
 ) {
     val backgroundColor = Color(0xFFFFFBF0) // Light cream background color
 
@@ -86,7 +133,10 @@ fun SettingsScreen(navController: NavController,
         SettingsItemCard(
             icon = R.drawable.ic_notice,
             title = "공지사항 확인하기",
-            onClick = { onLogoutClicked() }
+            onClick = {
+                // TODO: 공지사항 화면으로 이동하는 로직
+                // navController?.navigate(NavRoute.Notice.route)
+            }
         )
 
         SettingsItemCard(
@@ -113,49 +163,97 @@ fun SettingsScreen(navController: NavController,
     }
 }
 
-@Composable
-fun SettingsItemCard(icon: Int, title: String, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        ),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(id = icon),
-                contentDescription = title,
-                tint = Color(0xFF9C8A54),
-                modifier = Modifier.size(24.dp)
-            )
+//@Composable
+//fun SettingsScreen(navController: NavController,
+//                   onLogoutClicked: () -> Unit = {
+//                       // 기본 로그아웃 처리 로직
+//                       navController.navigate(NavRoute.Home.route) {
+//                           popUpTo(NavRoute.Home.route) { inclusive = true }
+//                       }
+//                   }
+//) {
+//    val backgroundColor = Color(0xFFFFFBF0) // Light cream background color
+//
+//    Column(
+//        modifier = Modifier
+//            .fillMaxSize()
+//            .background(backgroundColor)
+//    ) {
+//        // Top Header
+//        Box(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(horizontal = 16.dp, vertical = 16.dp)
+//        ) {
+//            Text(
+//                text = "설정",
+//                modifier = Modifier.align(Alignment.Center),
+//                fontSize = 20.sp,
+//                fontWeight = FontWeight.Bold,
+//                color = Color.Black
+//            )
+//
+//            Icon(
+//                painter = painterResource(id = R.drawable.ic_email),
+//                contentDescription = "이메일",
+//                modifier = Modifier
+//                    .align(Alignment.CenterStart)
+//                    .size(24.dp)
+//                    .clickable { /* Open email app */ },
+//                tint = Color(0xFF9C8A54)
+//            )
+//        }
+//
+//        HorizontalDivider(
+//            color = Color(0xFFE0E0E0),
+//            thickness = 1.5.dp,
+//            modifier = Modifier.fillMaxWidth()
+//        )
+//
+//        // Settings items
+//        SettingsItemCard(
+//            icon = R.drawable.ic_account,
+//            title = "계정 정보 관리",
+//            onClick = { /* Account management functionality */ }
+//        )
+//
+//        SettingsItemCard(
+//            icon = R.drawable.ic_notice,
+//            title = "공지사항 확인하기",
+//            onClick = { onLogoutClicked() }
+//        )
+//
+//        SettingsItemCard(
+//            icon = R.drawable.ic_logout,
+//            title = "로그아웃",
+//            onClick = { /* Logout functionality */ }
+//        )
+//
+//        // Version info
+//        Box(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(16.dp),
+//            contentAlignment = Alignment.Center
+//        ) {
+//            Text(
+//                text = "앱 버전: 1.0.0",
+//                fontSize = 14.sp,
+//                color = Color.Gray
+//            )
+//        }
+//
+//        Spacer(modifier = Modifier.weight(1f))
+//    }
+//}
+//
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                color = Color.Black,
-                modifier = Modifier.weight(1f)
-            )
-
-            Icon(
-                painter = painterResource(id = R.drawable.ic_arrow_forward),
-                contentDescription = "More",
-                tint = Color.Gray,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
+//
+//@Preview(showBackground = true)
+//@Composable
+//fun SettingsScreenPreview() {
+//    // 임시로 클릭 이벤트를 비워둠
+//    SettingsScreen(
+//
+//    )
+//}
