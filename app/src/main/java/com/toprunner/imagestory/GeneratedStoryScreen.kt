@@ -42,486 +42,430 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+import androidx.compose.ui.unit.TextUnit
 
+
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun GeneratedStoryScreen(
     storyId: Long,
     navController: NavController
 ) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val scrollState = rememberScrollState()
-
-    // 상태 변수들
-    var fairyTaleEntity by remember { mutableStateOf<FairyTaleEntity?>(null) }
-    var storyTitle by remember { mutableStateOf("") }
-    var storyContent by remember { mutableStateOf("") }
-    var storyImage by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(true) }
-    var playbackProgress by remember { mutableStateOf(0f) }
-    var audioDuration by remember { mutableStateOf("0:00") }
-    var currentAudioPath by remember { mutableStateOf<String?>(null) }
-
-    // TTS 서비스
-    val ttsService = remember { TTSService(context) }
-
-    // 동화 로드
-    LaunchedEffect(storyId) {
-        loadStory(
-            context = context,
-            storyId = storyId,
-            onStoryLoaded = { entity, content, bitmap, audioPath ->
-                fairyTaleEntity = entity
-                storyTitle = entity.title
-                storyContent = content
-                storyImage = bitmap
-                currentAudioPath = audioPath
-                isLoading = false
-            },
-            onError = { errorMessage ->
-                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
-                isLoading = false
-            }
-        )
-    }
-
-    // 재생 상태 업데이트
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            while (isPlaying) {
-                playbackProgress = ttsService.getPlaybackProgress()
-                // 재생이 끝나면 초기화
-                if (playbackProgress >= 1f) {
-                    isPlaying = false
-                    playbackProgress = 0f
-                }
-                delay(100) // 100ms마다 업데이트
-            }
-        }
-    }
-
-    // 오디오 재생 기능
-    val playStoryAudio = {
-        currentAudioPath?.let { path ->
-            if (path.isEmpty()) {
-                Toast.makeText(context, "오디오 파일이 없습니다.", Toast.LENGTH_SHORT).show()
-                return@let
-            }
-
-            val success = if (isPlaying) {
-                ttsService.resumeAudio()
-            } else {
-                ttsService.playAudio(path)
-            }
-
-            if (success) {
-                isPlaying = true
-                updateAudioDurationText(ttsService.getTotalDuration(), audioDuration = { audioDuration = it })
-            } else {
-                Toast.makeText(context, "음성 재생에 실패했습니다.", Toast.LENGTH_SHORT).show()
-            }
-        } ?: run {
-            Toast.makeText(context, "오디오 파일을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // 오디오 일시 정지 기능
-    val pauseStoryAudio = {
-        val success = ttsService.pauseAudio()
-        if (success) {
-            isPlaying = false
-        }
-    }
-
-    // 오디오 정지 기능
-    val stopStoryAudio = {
-        val success = ttsService.stopAudio()
-        if (success) {
-            isPlaying = false
-            playbackProgress = 0f
-        }
-    }
-
-    // 목소리 추천 기능
-    val recommendVoice = {
-        Toast.makeText(context, "동화에 어울리는 목소리를 추천합니다.", Toast.LENGTH_SHORT).show()
-        // 실제 구현에서는 알고리즘에 따라 목소리 추천 후 적용
-    }
-
-    // 시간 표시 계산
-    @SuppressLint("DefaultLocale")
-    val progressText = "${(playbackProgress * 100).toInt()}%"
-
-    // 현재 재생 시간 계산
-    val totalDurationSec = getTotalDurationInSeconds(audioDuration)
-    val currentPositionSeconds = (playbackProgress * totalDurationSec).toInt()
-    val currentTimeText = String.format("%d:%02d", currentPositionSeconds / 60, currentPositionSeconds % 60)
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFFFFBF0))
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
     ) {
-        // 상단 헤더
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-        ) {
-            Text(
-                text = "생성된 동화",
-                modifier = Modifier.align(Alignment.Center),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
+        val screenWidthDp = maxWidth
+        val isLargeScreen = screenWidthDp > 600.dp
 
-            Text(
-                text = "뒤로",
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .clickable { navController.navigateUp() },
-                fontSize = 16.sp,
-                color = Color(0xFF9C8A54)
+        val titleFontSize = if (isLargeScreen) 28.sp else 22.sp
+        val bodyFontSize = if (isLargeScreen) 20.sp else 16.sp
+        val iconSize = if (isLargeScreen) 32.dp else 24.dp
+        val imageHeight = if (isLargeScreen) 280.dp else 200.dp
+        val buttonHeight = if (isLargeScreen) 48.dp else 36.dp
+        val progressFontSize = if (isLargeScreen) 16.sp else 14.sp
+
+        val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+        val scrollState = rememberScrollState()
+
+        // 상태 변수들
+        var fairyTaleEntity by remember { mutableStateOf<FairyTaleEntity?>(null) }
+        var storyTitle by remember { mutableStateOf("") }
+        var storyContent by remember { mutableStateOf("") }
+        var storyImage by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+        var isPlaying by remember { mutableStateOf(false) }
+        var isLoading by remember { mutableStateOf(true) }
+        var playbackProgress by remember { mutableStateOf(0f) }
+        var audioDuration by remember { mutableStateOf("0:00") }
+        var currentAudioPath by remember { mutableStateOf<String?>(null) }
+
+        // TTS 서비스
+        val ttsService = remember { TTSService(context) }
+
+        // 동화 로드
+        LaunchedEffect(storyId) {
+            loadStory(
+                context = context,
+                storyId = storyId,
+                onStoryLoaded = { entity, content, bitmap, audioPath ->
+                    fairyTaleEntity = entity
+                    storyTitle = entity.title
+                    storyContent = content
+                    storyImage = bitmap
+                    currentAudioPath = audioPath
+                    isLoading = false
+                },
+                onError = { errorMessage ->
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                    isLoading = false
+                }
             )
         }
 
-        HorizontalDivider(
-            color = Color(0xFFE0E0E0),
-            thickness = 1.5.dp,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // 이미지 영역 (책 이미지)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-        ) {
-            if (storyImage != null && !isLoading) {
-                Image(
-                    bitmap = storyImage!!.asImageBitmap(),
-                    contentDescription = "Story Image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.LightGray),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = Color(0xFFE9D364)
-                        )
-                    } else {
-                        Text(
-                            text = "이미지 준비 중...",
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
-                        )
+        // 재생 상태 업데이트
+        LaunchedEffect(isPlaying) {
+            if (isPlaying) {
+                while (isPlaying) {
+                    playbackProgress = ttsService.getPlaybackProgress()
+                    // 재생이 끝나면 초기화
+                    if (playbackProgress >= 1f) {
+                        isPlaying = false
+                        playbackProgress = 0f
                     }
+                    delay(100) // 100ms마다 업데이트
                 }
             }
         }
 
-        // 동화 제목 및 나레이터 정보
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = storyTitle.ifEmpty { "동화 제목" },
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                textAlign = TextAlign.Center
-            )
+        // 오디오 재생 기능
+        val playStoryAudio = {
+            currentAudioPath?.let { path ->
+                if (path.isEmpty()) {
+                    Toast.makeText(context, "오디오 파일이 없습니다.", Toast.LENGTH_SHORT).show()
+                    return@let
+                }
 
-            Text(
-                text = "narrated by AI Voice",
-                fontSize = 16.sp,
-                color = Color(0xFFAA8866), // 베이지/갈색
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
+                val success = if (isPlaying) {
+                    ttsService.resumeAudio()
+                } else {
+                    ttsService.playAudio(path)
+                }
 
-        // 오디오 진행 상태 바
-        Slider(
-            value = playbackProgress,
-            onValueChange = { /* 진행바 드래그는 구현하지 않음 */ },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(20.dp), // 전체 높이를 줄임
-            colors = SliderDefaults.colors(
-                thumbColor = Color(0xFFE9D364), // 노란색 썸네일
-                activeTrackColor = Color(0xFFE9D364), // 노란색 활성 트랙
-                inactiveTrackColor = Color(0xFFE0E0E0) // 회색 비활성 트랙
-            ),
-            enabled = !isLoading
-        )
-
-        // 시간 정보
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = progressText,
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
-
-            Text(
-                text = "$currentTimeText / $audioDuration",
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
-        }
-
-        // 재생 컨트롤 버튼들
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 재생/일시정지 버튼
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE9D364))
-                    .clickable(enabled = !isLoading) {
-                        if (isPlaying) pauseStoryAudio() else playStoryAudio()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(
-                        id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                    ),
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(24.dp))
-
-            // 정지 버튼
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE9D364))
-                    .clickable(enabled = !isLoading) { stopStoryAudio() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_stop),
-                    contentDescription = "Stop",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
-                )
+                if (success) {
+                    isPlaying = true
+                    updateAudioDurationText(
+                        ttsService.getTotalDuration(),
+                        audioDuration = { audioDuration = it })
+                } else {
+                    Toast.makeText(context, "음성 재생에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                }
+            } ?: run {
+                Toast.makeText(context, "오디오 파일을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // 목소리 설정 섹션
+        // 오디오 일시 정지 기능
+        val pauseStoryAudio = {
+            val success = ttsService.pauseAudio()
+            if (success) {
+                isPlaying = false
+            }
+        }
+
+        // 오디오 정지 기능
+        val stopStoryAudio = {
+            val success = ttsService.stopAudio()
+            if (success) {
+                isPlaying = false
+                playbackProgress = 0f
+            }
+        }
+
+        // 목소리 추천 기능
+        val recommendVoice = {
+            Toast.makeText(context, "동화에 어울리는 목소리를 추천합니다.", Toast.LENGTH_SHORT).show()
+            // 실제 구현에서는 알고리즘에 따라 목소리 추천 후 적용
+        }
+
+        // 시간 표시 계산
+        @SuppressLint("DefaultLocale")
+        val progressText = "${(playbackProgress * 100).toInt()}%"
+
+        // 현재 재생 시간 계산
+        val totalDurationSec = getTotalDurationInSeconds(audioDuration)
+        val currentPositionSeconds = (playbackProgress * totalDurationSec).toInt()
+        val currentTimeText =
+            String.format("%d:%02d", currentPositionSeconds / 60, currentPositionSeconds % 60)
+
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
+                .background(Color(0xFFFFFBF0))
         ) {
-            // 목소리 선택 버튼
-            Row(
+            // 상단 헤더
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = !isLoading) {
-                        navController.navigate(NavRoute.VoiceList.route)
-                    }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
                 Text(
-                    text = "목소리 선택",
-                    fontSize = 16.sp,
+                    text = "생성된 동화",
+                    modifier = Modifier.align(Alignment.Center),
+                    fontSize = titleFontSize,
+                    fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
 
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_forward),
-                    contentDescription = "More",
-                    tint = Color.Gray
-                )
-            }
-
-            // 디바이더 라인
-            HorizontalDivider(
-                color = Color(0xFFE0E0E0),
-                thickness = 1.dp,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // 배경음 설정 버튼
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !isLoading) {
-                        navController.navigate(NavRoute.MusicList.route)
-                    }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
                 Text(
-                    text = "배경음 설정",
-                    fontSize = 16.sp,
-                    color = Color.Black
-                )
-
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_forward),
-                    contentDescription = "More",
-                    tint = Color.Gray
+                    text = "뒤로",
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .clickable { navController.navigateUp() },
+                    fontSize = bodyFontSize,
+                    color = Color(0xFF9C8A54)
                 )
             }
 
-            // 디바이더 라인
             HorizontalDivider(
                 color = Color(0xFFE0E0E0),
-                thickness = 1.dp,
-                modifier = Modifier.fillMaxWidth()
+                thickness = 1.5.dp
             )
 
-            // 목소리 추천 버튼 수정 - 더 명확한 버튼 형태로
-            Button(
-                onClick = { recommendVoice() },
+            // 이미지
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .height(36.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF5F5F5) // 밝은 회색 배경
-                ),
-                shape = RoundedCornerShape(8.dp),
-                enabled = !isLoading
+            ) {
+                if (storyImage != null && !isLoading) {
+                    val imageRatio = storyImage!!.width.toFloat() / storyImage!!.height
+
+                    Image(
+                        bitmap = storyImage!!.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(imageRatio) // 원본 비율 유지
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Fit // 이미지 잘리지 않게
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(imageHeight)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.LightGray),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(color = Color(0xFFE9D364))
+                        } else {
+                            Text("이미지 준비 중...", color = Color.White)
+                        }
+                    }
+                }
+            }
+
+            // 제목과 나레이터
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "목소리 추천",
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 16.sp,
-                    color = Color.Black
+                    text = storyTitle.ifEmpty { "동화 제목" },
+                    fontSize = titleFontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = "narrated by AI Voice",
+                    fontSize = bodyFontSize,
+                    color = Color(0xFFAA8866),
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
 
-            // 디바이더 라인
-            HorizontalDivider(
-                color = Color(0xFFE0E0E0),
-                thickness = 1.dp,
-                modifier = Modifier.fillMaxWidth()
+            // 슬라이더
+            Slider(
+                value = playbackProgress,
+                onValueChange = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(20.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFFE9D364),
+                    activeTrackColor = Color(0xFFE9D364),
+                    inactiveTrackColor = Color(0xFFE0E0E0)
+                ),
+                enabled = !isLoading
             )
 
-            // 동화 텍스트 섹션
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(progressText, fontSize = progressFontSize, color = Color.Gray)
+                Text("$currentTimeText / $audioDuration", fontSize = progressFontSize, color = Color.Gray)
+            }
+
+            // 오디오 컨트롤
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 재생/일시정지
+                Box(
+                    modifier = Modifier
+                        .size(if (isLargeScreen) 56.dp else 44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE9D364))
+                        .clickable(enabled = !isLoading) {
+                            if (isPlaying) pauseStoryAudio() else playStoryAudio()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play),
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = Color.Black,
+                        modifier = Modifier.size(iconSize)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(24.dp))
+
+                // 정지 버튼
+                Box(
+                    modifier = Modifier
+                        .size(if (isLargeScreen) 56.dp else 44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE9D364))
+                        .clickable(enabled = !isLoading) { stopStoryAudio() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_stop),
+                        contentDescription = "Stop",
+                        tint = Color.Black,
+                        modifier = Modifier.size(iconSize)
+                    )
+                }
+            }
+
+            // 목소리/음악 설정 및 추천
+            Column {
+                SettingsRow(
+                    title = "목소리 선택",
+                    onClick = { navController.navigate(NavRoute.VoiceList.route) },
+                    fontSize = bodyFontSize
+                )
+
+                SettingsRow(
+                    title = "배경음 설정",
+                    onClick = { navController.navigate(NavRoute.MusicList.route) },
+                    fontSize = bodyFontSize
+                )
+
+                Button(
+                    onClick = { recommendVoice() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .height(buttonHeight),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF5F5F5)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    enabled = !isLoading
+                ) {
+                    Text("목소리 추천", fontWeight = FontWeight.Medium, fontSize = bodyFontSize)
+                }
+
+                HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+            }
+
+            // 동화 텍스트 영역
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .weight(1f, fill = false)
-                    .verticalScroll(scrollState)
+                    .verticalScroll(rememberScrollState())
             ) {
                 if (storyContent.isNotEmpty()) {
-                    // 동화 텍스트를 줄바꿈 기준으로 분리
                     val storyLines = storyContent.split("\n")
                     storyLines.forEach { line ->
                         if (line.isNotEmpty()) {
                             Text(
                                 text = line,
-                                fontSize = 16.sp,
+                                fontSize = bodyFontSize,
                                 color = Color.Black,
                                 modifier = Modifier.padding(top = 4.dp),
-                                lineHeight = 24.sp
+                                lineHeight = (bodyFontSize.value + 8).sp
                             )
                         }
                     }
                 } else if (isLoading) {
-                    // 로딩 중 표시
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(150.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            color = Color(0xFFE9D364)
-                        )
+                        CircularProgressIndicator(color = Color(0xFFE9D364))
                     }
                 } else {
-                    // 기본 텍스트 표시
                     Text(
                         text = "동화 텍스트가 준비 중입니다...",
-                        fontSize = 16.sp,
+                        fontSize = bodyFontSize,
                         color = Color.Gray,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                // 스크롤을 위한 하단 여백
                 Spacer(modifier = Modifier.height(80.dp))
             }
         }
-    }
 
-    // 로딩 표시
-    if (isLoading) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.5f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+        // 로딩 오버레이
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    modifier = Modifier.size(60.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "동화를 불러오는 중입니다...",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(60.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("동화를 불러오는 중입니다...", color = Color.White, fontWeight = FontWeight.Bold)
+                }
             }
         }
-    }
 
-    // 화면 이탈 시 오디오 정지
-    DisposableEffect(Unit) {
-        onDispose {
-            ttsService.stopAudio()
+        DisposableEffect(Unit) {
+            onDispose {
+                ttsService.stopAudio()
+            }
         }
     }
 }
 
-// 동화 로드 함수
+@Composable
+fun SettingsRow(title: String, onClick: () -> Unit, fontSize: TextUnit) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, fontSize = fontSize, color = Color.Black)
+            Icon(
+                painter = painterResource(id = R.drawable.ic_arrow_forward),
+                contentDescription = "More",
+                tint = Color.Gray
+            )
+        }
+        HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+    }
+}
+
+    // 동화 로드 함수
 private suspend fun loadStory(
     context: Context,
     storyId: Long,
