@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services") //추가
     id("kotlin-kapt")
 }
 val localPropertiesFile = rootProject.file("local.properties")
@@ -62,10 +63,15 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.32.0") // 버전 다운그레이드
 
     implementation(libs.gson) // 최신 버전의 Gson
+    //firebase 라이브러리
+    implementation(platform("com.google.firebase:firebase-bom:33.12.0"))
+    implementation("com.google.firebase:firebase-analytics")
 
     // Room 라이브러리
     implementation("androidx.room:room-runtime:2.7.0")
     implementation("androidx.room:room-ktx:2.7.0")
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.firestore.ktx)
     kapt("androidx.room:room-compiler:2.7.0")
 
     // ViewModel & LiveData
