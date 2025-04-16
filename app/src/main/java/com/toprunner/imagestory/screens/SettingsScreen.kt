@@ -92,7 +92,9 @@ fun SettingsScreen(navController: NavController,
         SettingsItemCard(
             icon = R.drawable.ic_logout,
             title = "로그아웃",
-            onClick = { /* Logout functionality */ }
+            onClick = {navController.navigate(NavRoute.Login.route) {
+                popUpTo(NavRoute.Home.route) { inclusive = true }
+            }} //로그아웃버튼 기능 정의
         )
 
         // Version info

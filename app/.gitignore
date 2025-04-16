@@ -1,1 +1,6 @@
-/build
+*.env
+*.pro
+/local.properties
+/google-services.json
+/capstonelogin-ffe26-firebase-adminsdk-fbsvc-6e59424fb5.json
+*.json

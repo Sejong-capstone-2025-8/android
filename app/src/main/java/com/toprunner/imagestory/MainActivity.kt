@@ -1,5 +1,7 @@
 package com.toprunner.imagestory
 
+import LoginScreen
+import RegisterScreen
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
@@ -132,7 +134,7 @@ class MainActivity : ComponentActivity() {
                             //.navigationBarsPadding()
                     ){NavHost(
                         navController = navController,
-                        startDestination = NavRoute.Home.route,
+                        startDestination = NavRoute.Login.route,
                         modifier = Modifier.fillMaxSize()
 
                     ) {
@@ -148,7 +150,28 @@ class MainActivity : ComponentActivity() {
                                 onGenerateStoryClicked = { startStoryCreation(navController) }
                             )
                         }
+                        // 로그인 화면 추가
+                        composable(NavRoute.Login.route) {
+                            LoginScreen(
+                                onLoginSuccess = {
+                                    navController.navigate(NavRoute.Home.route) {
+                                        popUpTo(NavRoute.Login.route) { inclusive = true }
+                                    }
+                                },
+                                onRegisterClick = {
+                                    navController.navigate(NavRoute.Register.route)
+                                }
+                            )
+                        }
 
+                        // 회원가입 화면 추가
+                        composable(NavRoute.Register.route) {
+                            RegisterScreen(
+                                onRegisterSuccess = {
+                                    navController.popBackStack() // 로그인 화면으로 돌아감
+                                }
+                            )
+                        }
                         // 동화 리스트 화면
                         composable(NavRoute.FairyTaleList.route) {
                             FairyTaleListScreen(
