@@ -63,10 +63,14 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.32.0") // 버전 다운그레이드
 
     implementation(libs.gson) // 최신 버전의 Gson
+    // 구글 로그인
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.android.gms:play-services-auth:20.5.0")
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.firestore.ktx)
     //firebase 라이브러리
     implementation(platform("com.google.firebase:firebase-bom:33.12.0"))
     implementation("com.google.firebase:firebase-analytics")
-
     // Room 라이브러리
     implementation("androidx.room:room-runtime:2.7.0")
     implementation("androidx.room:room-ktx:2.7.0")
