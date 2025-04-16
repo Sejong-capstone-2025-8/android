@@ -3,7 +3,7 @@ package com.toprunner.imagestory
 import LoginScreen
 import RegisterScreen
 import android.Manifest
-import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
@@ -22,8 +22,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -33,6 +31,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.common.api.ApiException
 import com.toprunner.imagestory.controller.StoryCreationController
 import com.toprunner.imagestory.navigation.NavRoute
 import com.toprunner.imagestory.screens.*
@@ -44,6 +48,10 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var firebaseAuth: FirebaseAuth
+    private lateinit var googleSignInClient: GoogleSignInClient
+    private val RC_SIGN_IN = 9001 // 구글 로그인 요청 코드
 
     // 이미지 관련 상태
     private var capturedImageUri by mutableStateOf<Uri?>(null)
@@ -110,10 +118,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
         initializeDefaultData()
 
         setContent {
@@ -131,7 +139,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
-                            //.navigationBarsPadding()
+                        //.navigationBarsPadding()
                     ){NavHost(
                         navController = navController,
                         startDestination = NavRoute.Login.route,
@@ -150,7 +158,7 @@ class MainActivity : ComponentActivity() {
                                 onGenerateStoryClicked = { startStoryCreation(navController) }
                             )
                         }
-                        // 로그인 화면 추가
+                        // 로그인 화면
                         composable(NavRoute.Login.route) {
                             LoginScreen(
                                 onLoginSuccess = {
@@ -160,11 +168,15 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onRegisterClick = {
                                     navController.navigate(NavRoute.Register.route)
-                                }
+                                },
+                                onGoogleLoginClick = {
+                                    navController.navigate(NavRoute.Home.route) {
+                                        popUpTo(NavRoute.Login.route) { inclusive = true }
+                                    }} // 구글 로그인 버튼 클릭 시 호출
                             )
                         }
 
-                        // 회원가입 화면 추가
+                        // 회원가입 화면
                         composable(NavRoute.Register.route) {
                             RegisterScreen(
                                 onRegisterSuccess = {
@@ -201,10 +213,13 @@ class MainActivity : ComponentActivity() {
                             SettingsScreen(
                                 navController = navController,
                                 onLogoutClicked = {
-                                    // 로그아웃 로직
+                                    // Firebase 로그아웃 처리
+                                    val firebaseAuth = FirebaseAuth.getInstance()
+                                    firebaseAuth.signOut()
                                     Toast.makeText(this@MainActivity, "로그아웃 되었습니다.", Toast.LENGTH_SHORT).show()
-                                    // 홈 화면으로 이동
-                                    navController.navigate(NavRoute.Home.route) {
+
+                                    // 로그인 화면으로 이동
+                                    navController.navigate(NavRoute.Login.route) {
                                         popUpTo(NavRoute.Home.route) { inclusive = true }
                                     }
                                 }
