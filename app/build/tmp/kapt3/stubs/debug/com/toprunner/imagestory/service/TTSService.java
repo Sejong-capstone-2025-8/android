@@ -17,7 +17,7 @@ public final class TTSService {
     @org.jetbrains.annotations.NotNull()
     private static final java.lang.String API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
     @org.jetbrains.annotations.NotNull()
-    private static final java.lang.String API_KEY = "null";
+    private static final java.lang.String API_KEY = "sk_fafb924161b524a0f2837720ee52b308451e4571b22d2ea5";
     @org.jetbrains.annotations.NotNull()
     private static final java.lang.String TAG = "TTSService";
     @org.jetbrains.annotations.NotNull()

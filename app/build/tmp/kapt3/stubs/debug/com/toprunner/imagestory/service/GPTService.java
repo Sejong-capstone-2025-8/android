@@ -5,7 +5,7 @@ public final class GPTService {
     @org.jetbrains.annotations.NotNull()
     private static final java.lang.String API_URL = "https://api.openai.com/v1/chat/completions";
     @org.jetbrains.annotations.NotNull()
-    private static final java.lang.String API_KEY = "null";
+    private static final java.lang.String API_KEY = "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";
     @org.jetbrains.annotations.NotNull()
     private static final java.lang.String TAG = "GPTService";
     @org.jetbrains.annotations.NotNull()

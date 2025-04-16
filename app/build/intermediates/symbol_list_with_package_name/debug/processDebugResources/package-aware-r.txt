@@ -3856,6 +3856,7 @@ string copy_toast_msg
 string create_story
 string default_error_message
 string default_popup_window_title
+string default_web_client_id
 string desert
 string dropdown_menu
 string error_a11y_label
