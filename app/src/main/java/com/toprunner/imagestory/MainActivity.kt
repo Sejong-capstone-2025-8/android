@@ -216,11 +216,18 @@ class MainActivity : ComponentActivity() {
                                     // Firebase 로그아웃 처리
                                     val firebaseAuth = FirebaseAuth.getInstance()
                                     firebaseAuth.signOut()
-                                    Toast.makeText(this@MainActivity, "로그아웃 되었습니다.", Toast.LENGTH_SHORT).show()
 
-                                    // 로그인 화면으로 이동
-                                    navController.navigate(NavRoute.Login.route) {
-                                        popUpTo(NavRoute.Home.route) { inclusive = true }
+                                    // 구글 로그아웃 처리
+                                    val googleSignInClient = GoogleSignIn.getClient(this@MainActivity, GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                    googleSignInClient.signOut().addOnCompleteListener {
+                                        Toast.makeText(this@MainActivity, "로그아웃 되었습니다.", Toast.LENGTH_SHORT).show()
+                                        // Firebase 로그아웃도 함께 처리
+                                        firebaseAuth.signOut()
+
+                                        // 로그인 화면으로 이동
+                                        navController.navigate(NavRoute.Login.route) {
+                                            popUpTo(NavRoute.Home.route) { inclusive = true }
+                                        }
                                     }
                                 }
                             )
