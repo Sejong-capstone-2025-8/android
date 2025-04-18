@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +27,7 @@ fun BottomNavBar(navController: NavController) {
     val items = listOf(
         Triple(NavRoute.Home.route, R.drawable.ic_home, "홈화면"),
         Triple(NavRoute.FairyTaleList.route, R.drawable.ic_bookmark, "동화 리스트"),
-        Triple(NavRoute.VoiceList.route, R.drawable.ic_mic, "목소리 리스트"),
+        Triple(NavRoute.VoiceList.route, R.drawable.ic_mic, "음성 리스트"),
         Triple(NavRoute.MusicList.route, R.drawable.ic_music, "음악 리스트"),
         Triple(NavRoute.Settings.route, R.drawable.ic_settings, "설정")
     )
@@ -76,7 +77,15 @@ fun BottomNavBar(navController: NavController) {
                         color = if (selected) Color.Black else Color(0xFF666666),
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                     )
-                }
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    // 선택(하이라이트)된 아이템의 인디케이터 색상을 원하는 색으로 지정
+                    indicatorColor = Color(0xFFFFC106),
+                    selectedIconColor = Color.Black,
+                    unselectedIconColor = Color(0xFFAA8866),
+                    selectedTextColor = Color.Black,
+                    unselectedTextColor = Color(0xFF666666)
+                )
             )
         }
     }

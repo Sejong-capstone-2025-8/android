@@ -164,13 +164,19 @@ class GeneratedStoryViewModel : ViewModel() {
     private fun startProgressTracking() {
         viewModelScope.launch {
             while (_isPlaying.value) {
-                _playbackProgress.value = ttsService?.getPlaybackProgress() ?: 0f
+                val currentPos = ttsService?.getCurrentPosition() ?: 0
+                val total = ttsService?.getTotalDuration() ?: 1
+                _playbackProgress.value = if (total > 0) currentPos.toFloat() / total else 0f
+
+                // 전체 재생 시간도 업데이트 (재생 시작 후 더 정확한 값을 얻을 수 있음)
+                _totalDuration.value = total
+
                 if (_playbackProgress.value >= 1f) {
                     _isPlaying.value = false
                     _playbackProgress.value = 0f
                     break
                 }
-                kotlinx.coroutines.delay(100)
+                kotlinx.coroutines.delay(100) // 100ms마다 업데이트
             }
         }
     }

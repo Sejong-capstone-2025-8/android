@@ -38,7 +38,7 @@ fun HomeScreen(
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
     val themeOptions = remember { listOf("판타지", "사랑", "SF", "공포", "코미디") }
-    val themeButtonText = selectedTheme ?: "테마 선택"
+    val themeButtonText = selectedTheme ?: "테마"
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -149,7 +149,7 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "사진 찍기",
+                                text = "카메라",
                                 color = Color.Black,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
@@ -206,7 +206,7 @@ fun HomeScreen(
                         ) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_settings),
-                                contentDescription = "테마 선택",
+                                contentDescription = "테마",
                                 tint = Color.Black,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -293,7 +293,7 @@ fun HomeScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "테마 선택",
+                        text = "테마",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black,

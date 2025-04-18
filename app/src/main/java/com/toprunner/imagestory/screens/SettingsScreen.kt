@@ -1,22 +1,11 @@
 package com.toprunner.imagestory.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,17 +15,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseAuth
 import com.toprunner.imagestory.R
 import com.toprunner.imagestory.navigation.NavRoute
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
-fun SettingsScreen(navController: NavController,
-                   onLogoutClicked: () -> Unit = {
-                       // 기본 로그아웃 처리 로직
-                       navController.navigate(NavRoute.Home.route) {
-                           popUpTo(NavRoute.Home.route) { inclusive = true }
-                       }
-                   }
+fun SettingsScreen(
+    navController: NavController,
+    onLogoutClicked: () -> Unit // onLogoutClicked를 외부에서 전달받음
 ) {
     val backgroundColor = Color(0xFFFFFBF0) // Light cream background color
 
@@ -156,6 +145,29 @@ fun SettingsItemCard(icon: Int, title: String, onClick: () -> Unit) {
                 tint = Color.Gray,
                 modifier = Modifier.size(20.dp)
             )
+        }
+    }
+}
+
+// 외부에서 호출할 수 있도록 로그아웃 함수 Composable로 만들어 전달
+@Composable
+fun Logout(navController: NavController) {
+    val context = LocalContext.current
+    val firebaseAuth = FirebaseAuth.getInstance()
+
+    // 기본 로그아웃 처리 로직
+    firebaseAuth.signOut()
+
+    // 구글 로그아웃 처리 추가
+    val googleSignInClient = GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN)
+    googleSignInClient.signOut().addOnCompleteListener {
+        Toast.makeText(context, "구글 로그아웃 되었습니다.", Toast.LENGTH_SHORT).show()
+        // Firebase 로그아웃도 함께 처리
+        firebaseAuth.signOut()
+
+        // 로그인 화면으로 이동
+        navController.navigate(NavRoute.Login.route) {
+            popUpTo(NavRoute.Home.route) { inclusive = true }
         }
     }
 }
