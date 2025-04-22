@@ -35,11 +35,18 @@ fun AutoResizingText(
     text: String,
     modifier: Modifier = Modifier,
     maxFontSize: TextUnit = 14.sp,
-    minFontSize: TextUnit = 10.sp,
+    minFontSize: TextUnit = 12.sp,
     maxLines: Int = 1,
     style: TextStyle = TextStyle.Default
 ) {
     var currentFontSize by remember(text) { mutableStateOf(maxFontSize) }
+    var readyToDraw by remember { mutableStateOf(false) }
+
+    LaunchedEffect(text, readyToDraw) {
+        if (readyToDraw) {
+            readyToDraw = false
+        }
+    }
 
     Text(
         text = text,
@@ -50,12 +57,12 @@ fun AutoResizingText(
         onTextLayout = { layoutResult ->
             if (layoutResult.hasVisualOverflow && currentFontSize > minFontSize) {
                 currentFontSize *= 0.9f
+                readyToDraw = true
             }
         },
         style = style.copy(fontSize = currentFontSize)
     )
 }
-
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -74,10 +81,9 @@ fun HomeScreen(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenWidth = maxWidth
-        val isWideScreen = screenWidth > 600.dp
-        val imageHeight = if (isWideScreen) 550.dp else 450.dp
-        val buttonSpacing = if (isWideScreen) 16.dp else 8.dp
-        val sidePadding = if (isWideScreen) 32.dp else 16.dp
+        val imageHeight = 450.dp
+        val buttonSpacing = 5.dp
+        val sidePadding = 8.dp
 
         Column(
             modifier = Modifier
@@ -88,7 +94,7 @@ fun HomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = sidePadding, vertical = 22.dp)
+                    .padding(horizontal = sidePadding, vertical = 15.dp)
             ) {
                 Text(
                     text = "홈",
@@ -114,7 +120,7 @@ fun HomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = sidePadding, vertical = 16.dp)
+                    .padding(horizontal = sidePadding, vertical = 8.dp)
             ) {
                 if (capturedImageBitmap != null) {
                     val imageRatio = capturedImageBitmap.width.toFloat() / capturedImageBitmap.height
@@ -149,7 +155,7 @@ fun HomeScreen(
                             Text(
                                 text = "사진을 찍거나 선택해주세요",
                                 color = Color.Gray,
-                                fontSize = 16.sp
+                                fontSize = 20.sp
                             )
                         }
                     }
@@ -176,7 +182,8 @@ fun HomeScreen(
                         onClick = onTakePhotoClicked,
                         modifier = buttonModifier,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566)),
-                        shape = RoundedCornerShape(7.dp)
+                        shape = RoundedCornerShape(7.dp),
+
                     ) {
                         IconText(iconId = R.drawable.ic_home, label = "사진 찍기")
                     }
@@ -185,7 +192,8 @@ fun HomeScreen(
                         onClick = onPickImageClicked,
                         modifier = buttonModifier,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566)),
-                        shape = RoundedCornerShape(7.dp)
+                        shape = RoundedCornerShape(7.dp),
+
                     ) {
                         IconText(iconId = R.drawable.ic_bookmark, label = "갤러리")
                     }
@@ -194,14 +202,14 @@ fun HomeScreen(
                         onClick = { showThemeDialog = true },
                         modifier = buttonModifier,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566)),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(7.dp),
                         enabled = !isLoading
                     ) {
                         IconText(iconId = R.drawable.ic_settings, label = themeButtonText)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(7.dp))
 
                 Button(
                     onClick = onGenerateStoryClicked,
@@ -326,8 +334,8 @@ private fun IconText(iconId: Int, label: String) {
         Spacer(modifier = Modifier.width(4.dp))
         AutoResizingText(
             text = label,
-            maxFontSize = 14.sp,
-            minFontSize = 10.sp,
+            maxFontSize = 12.sp,
+            minFontSize = 8.sp,
             modifier = Modifier.weight(1f), // 공간을 충분히 사용하게
             style = TextStyle(
                 color = Color.Black,

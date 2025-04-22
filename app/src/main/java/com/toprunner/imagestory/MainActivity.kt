@@ -101,12 +101,40 @@ class MainActivity : ComponentActivity() {
         uri?.let {
             capturedImageUri = it
             try {
-                capturedImageBitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                val originalBitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                val rotatedBitmap = fixImageRotation(uri, originalBitmap)
+                capturedImageBitmap = rotatedBitmap
             } catch (e: Exception) {
                 Toast.makeText(this, "이미지 처리 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
             }
         }
     }
+
+    private fun fixImageRotation(uri: Uri, bitmap: Bitmap): Bitmap {
+        return try {
+            val inputStream = contentResolver.openInputStream(uri)
+            val exif = inputStream?.use {
+                androidx.exifinterface.media.ExifInterface(it)
+            }
+
+            val orientation = exif?.getAttributeInt(
+                androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
+            ) ?: androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
+
+            val matrix = android.graphics.Matrix()
+            when (orientation) {
+                androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            }
+
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        } catch (e: Exception) {
+            bitmap // 회전 보정 실패 시 원본 그대로 사용
+        }
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
