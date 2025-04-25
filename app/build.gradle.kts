@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.gms.google-services") //추가
+    id("com.google.gms.google-services")
     id("kotlin-kapt")
 }
 val localPropertiesFile = rootProject.file("local.properties")
@@ -27,9 +27,19 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "ELEVENLABS_API_KEY", "\"${localProperties.getProperty("elevenlabs_api_key")}\"")
-        buildConfigField("String", "GPT_API_KEY", "\"${localProperties.getProperty("gpt_api_key")}\"")
+        val gptKey        = localProperties.getProperty("gpt_api_key")        ?: ""
+        val elevenLabsKey = localProperties.getProperty("elevenlabs_api_key") ?: ""
 
+        buildConfigField(
+            "String",
+            "GPT_API_KEY",
+            "\"$gptKey\""
+        )
+        buildConfigField(
+            "String",
+            "ELEVENLABS_API_KEY",
+            "\"$elevenLabsKey\""
+        )
     }
 
     buildTypes {
