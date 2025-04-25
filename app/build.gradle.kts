@@ -30,7 +30,6 @@ android {
         buildConfigField("String", "ELEVENLABS_API_KEY", "\"${localProperties.getProperty("elevenlabs_api_key")}\"")
         buildConfigField("String", "GPT_API_KEY", "\"${localProperties.getProperty("gpt_api_key")}\"")
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false
