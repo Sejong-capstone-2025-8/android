@@ -78,15 +78,20 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(16.dp))
         //이메일 로그인
         Button(onClick = {
-            auth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        Toast.makeText(context, "로그인 성공", Toast.LENGTH_SHORT).show()
-                        onLoginSuccess()
-                    } else {
-                        Toast.makeText(context, "로그인 실패", Toast.LENGTH_SHORT).show()
+            if (email.isBlank() || password.isBlank()) {
+                // 이메일 또는 비밀번호가 비어있을 경우
+                Toast.makeText(context, "아이디와 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show()
+            }else {
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            Toast.makeText(context, "로그인 성공", Toast.LENGTH_SHORT).show()
+                            onLoginSuccess()
+                        } else {
+                            Toast.makeText(context, "로그인 실패", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                }
+            }
         }) {
             Text("로그인")
         }
