@@ -84,11 +84,8 @@ dependencies {
     // Room 라이브러리
     implementation("androidx.room:room-runtime:2.7.0")
     implementation("androidx.room:room-ktx:2.7.0")
-<<<<<<< HEAD
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
-=======
->>>>>>> 07b04043fe1f59c265784118a26f807186be5db4
     kapt("androidx.room:room-compiler:2.7.0")
 
     // ViewModel & LiveData
