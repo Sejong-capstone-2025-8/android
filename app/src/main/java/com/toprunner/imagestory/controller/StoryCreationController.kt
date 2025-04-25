@@ -49,6 +49,8 @@ class StoryCreationController(private val context: Context) {
             val gptResponse = gptService.generateStory(image, englishTheme)
             Log.d(TAG, "GPT API returned response successfully")
 
+            Log.d("GPT RESPONSE", "gpt response: $gptResponse")
+
             // 동화 내용 처리
             val storyData = processGPTResponse(gptResponse)
             val title = storyData.first

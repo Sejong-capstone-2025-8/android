@@ -176,7 +176,7 @@ fun HomeScreen(
                 ) {
                     val buttonModifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
+                        .height(60.dp)
 
                     Button(
                         onClick = onTakePhotoClicked,
@@ -215,7 +215,7 @@ fun HomeScreen(
                     onClick = onGenerateStoryClicked,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(60.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFFFD166),
                         disabledContainerColor = Color(0xFFE0E0E0)
@@ -329,13 +329,13 @@ private fun IconText(iconId: Int, label: String) {
             painter = painterResource(id = iconId),
             contentDescription = label,
             tint = Color.Black,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(15.dp)
         )
         Spacer(modifier = Modifier.width(4.dp))
         AutoResizingText(
             text = label,
             maxFontSize = 12.sp,
-            minFontSize = 8.sp,
+            minFontSize = 10.sp,
             modifier = Modifier.weight(1f), // 공간을 충분히 사용하게
             style = TextStyle(
                 color = Color.Black,

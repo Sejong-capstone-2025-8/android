@@ -15,3 +15,4 @@ data class FairyTaleEntity(
     val attribute: String, // 테마 정보를 JSON 형태로 저장
     val created_at: Long = System.currentTimeMillis()
 )
+

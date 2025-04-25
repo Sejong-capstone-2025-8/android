@@ -16,6 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +41,9 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.exifinterface.media.ExifInterface
+import androidx.navigation.NavHostController
+
 
 class MainActivity : ComponentActivity() {
 
@@ -242,6 +246,8 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun AnimatedContentScope.VoiceRecordingScreen(navController: NavHostController) {}
 
     // 앱 초기화 로직
     private fun initializeDefaultData() {

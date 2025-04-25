@@ -30,7 +30,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
+import com.toprunner.imagestory.ui.components.FairyTaleViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 //BoxWithConstraints 사용으로 화면 크기 대응
 //padding 비율 계산
@@ -38,36 +39,13 @@ import androidx.compose.ui.unit.sp
 //TextOverflow, maxLines 등으로 텍스트 깨짐 방지
 
 @Composable
-fun FairyTaleListScreen(navController: NavController) {
+fun FairyTaleListScreen(navController: NavController, viewModel: FairyTaleViewModel = viewModel()) {
     val backgroundColor = Color(0xFFFFFBF0) // 밝은 크림색 배경
     var isLoading by remember { mutableStateOf(false) }
-    var fairyTales by remember { mutableStateOf<List<FairyTaleEntity>>(emptyList()) }
+    val fairyTales by viewModel.fairyTales
 
     LaunchedEffect(Unit) {
-        isLoading = true
-        fairyTales = listOf(
-            FairyTaleEntity(
-                fairy_tales_id = 1,
-                title = "마법의 숲속 모험",
-                voice_id = 1,
-                image_id = 1,
-                text_id = 1,
-                music_id = 1,
-                attribute = "{\"theme\":\"fantasy\", \"audioPath\":\"sample\"}",
-                created_at = System.currentTimeMillis()
-            ),
-            FairyTaleEntity(
-                fairy_tales_id = 2,
-                title = "별빛 너머의 우주여행",
-                voice_id = 2,
-                image_id = 2,
-                text_id = 2,
-                music_id = 2,
-                attribute = "{\"theme\":\"sf\", \"audioPath\":\"sample\"}",
-                created_at = System.currentTimeMillis() - 86400000 // 1 day ago
-            )
-        )
-        isLoading = false
+        viewModel.loadFairyTales()
     }
 
     Column(

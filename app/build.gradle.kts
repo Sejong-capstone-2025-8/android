@@ -124,5 +124,5 @@ dependencies {
     kapt ("androidx.room:room-compiler:2.5.0")
     implementation ("androidx.room:room-ktx:2.5.0")
 
-    implementation ("androidx.exifinterface:exifinterface:1.3.6")
+    implementation ("androidx.exifinterface:exifinterface:1.3.7")
 }
