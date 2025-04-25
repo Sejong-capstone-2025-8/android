@@ -29,6 +29,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
@@ -130,7 +131,10 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     bottomBar = {
-                        BottomNavBar(navController = navController)
+                        // 로그인 화면과 회원가입 화면에서는 BottomNavBar를 숨기기
+                        if (navController.currentBackStackEntryAsState().value?.destination?.route !in listOf(NavRoute.Login.route, NavRoute.Register.route)) {
+                            BottomNavBar(navController = navController)
+                        }
                     }
                 ) { innerPadding ->
                     // innerPadding: Scaffold에서 내려주는 기본 패딩
