@@ -1,4 +1,7 @@
 package com.toprunner.imagestory
+//변경사항
+// import com.toprunner.imagestory.screens.*
+//변경사항
 
 import com.toprunner.imagestory.LoginScreen
 import com.toprunner.imagestory.RegisterScreen
@@ -181,7 +184,7 @@ class MainActivity : ComponentActivity() {
                     ){
                         NavHost(
                         navController = navController,
-                        startDestination = NavRoute.Login.route,
+                        startDestination = NavRoute.Home.route,
                         modifier = Modifier.fillMaxSize()
 
                     ) {
