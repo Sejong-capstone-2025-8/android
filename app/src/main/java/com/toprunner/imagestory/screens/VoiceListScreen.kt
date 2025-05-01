@@ -32,7 +32,10 @@ import com.toprunner.imagestory.repository.VoiceRepository
 import com.toprunner.imagestory.service.TTSService
 import com.toprunner.imagestory.service.VoiceCloneService
 import com.toprunner.imagestory.model.VoiceFeatures
+import com.toprunner.imagestory.ui.components.ImprovedVoiceFeatureVisualization
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
@@ -57,6 +60,12 @@ fun VoiceListScreen(
     // 클론 음성 생성 관련 다이얼로그 상태
     var showCloneDialog by remember { mutableStateOf(false) }
     var selectedVoiceForClone by remember { mutableStateOf<VoiceEntity?>(null) }
+
+    // 음성 특징 다이얼로그 상태
+    var showFeaturesDialog by remember { mutableStateOf(false) }
+    var selectedVoiceFeatures by remember { mutableStateOf<VoiceFeatures?>(null) }
+    var selectedVoiceTitle by remember { mutableStateOf("") }
+    var isLoadingFeatures by remember { mutableStateOf(false) }
 
     // TTSService 인스턴스를 하나 생성 (음성 재생용)
     val ttsService = remember { TTSService(context) }
@@ -135,6 +144,37 @@ fun VoiceListScreen(
                 currentPlayingVoiceId = voice.voice_id
             } else {
                 Toast.makeText(context, "음성 재생에 실패했습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    // 음성 특징 로드 함수
+    fun loadVoiceFeatures(voice: VoiceEntity) {
+        scope.launch {
+            isLoadingFeatures = true
+            selectedVoiceTitle = voice.title
+
+            try {
+                // VoiceRepository에서 음성 특징 로드
+                withContext(Dispatchers.IO) {
+                    // 특징 파일 경로 찾기
+                    val attributeJson = JSONObject(voice.attribute)
+
+
+
+                    // voiceRepository.getVoiceFeatures 메소드가 있는 경우
+                    val features = repo.getVoiceFeatures(voice.voice_id)
+
+                    withContext(Dispatchers.Main) {
+                        selectedVoiceFeatures = features
+                        showFeaturesDialog = true
+                        isLoadingFeatures = false
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "음성 특징을 불러오는데 실패했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
+                    isLoadingFeatures = false
+                }
             }
         }
     }
@@ -281,8 +321,10 @@ fun VoiceListScreen(
                                     VoiceItemCard(
                                         voice = voice,
                                         isPlaying = currentPlayingVoiceId == voice.voice_id,
-                                        onClick = { toggleVoice(voice) },
-                                        onDelete = { deleteVoice(voice.voice_id) }
+                                        onClick = { }, // 더 이상 사용하지 않음
+                                        onDelete = { deleteVoice(voice.voice_id) },
+                                        onPlayClick = { toggleVoice(voice) },
+                                        onShowFeaturesClick = { loadVoiceFeatures(voice) }
                                     )
                                 }
                             }
@@ -330,8 +372,10 @@ fun VoiceListScreen(
                                     VoiceItemCard(
                                         voice = voice,
                                         isPlaying = currentPlayingVoiceId == voice.voice_id,
-                                        onClick = { toggleVoice(voice) },
+                                        onClick = { }, // 더 이상 사용하지 않음
                                         onDelete = { deleteVoice(voice.voice_id) },
+                                        onPlayClick = { toggleVoice(voice) },
+                                        onShowFeaturesClick = { loadVoiceFeatures(voice) },
                                         isClonedVoice = true
                                     )
                                 }
@@ -377,6 +421,18 @@ fun VoiceListScreen(
                             )
                         }
                     }
+                }
+            }
+
+            // 특징 로딩 표시기
+            if (isLoadingFeatures) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color.White)
                 }
             }
         }
@@ -537,15 +593,89 @@ fun VoiceListScreen(
                 }
             }
         }
+    }// 음성 특징 다이얼로그
+    if (showFeaturesDialog && selectedVoiceFeatures != null) {
+        Dialog(onDismissRequest = { showFeaturesDialog = false }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(600.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "음성 특징 정보",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        IconButton(onClick = { showFeaturesDialog = false }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_stop),
+                                contentDescription = "Close",
+                                tint = Color.Gray
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = selectedVoiceTitle,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF9C8A54),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+
+                    HorizontalDivider(
+                        color = Color(0xFFE0E0E0),
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    // 음성 특징 시각화 컴포넌트
+                    ImprovedVoiceFeatureVisualization(voiceFeatures = selectedVoiceFeatures!!)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = { showFeaturesDialog = false },
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .padding(top = 16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE9D364)
+                        )
+                    ) {
+                        Text("확인", color = Color.Black)
+                    }
+                }
+            }
+        }
     }
 }
+
 
 @Composable
 fun VoiceItemCard(
     voice: VoiceEntity,
     isPlaying: Boolean,
-    onClick: () -> Unit,
+    onClick: () -> Unit, // 카드 전체 클릭 -> 이제 사용하지 않음
     onDelete: () -> Unit,
+    onPlayClick: () -> Unit, // 음성 재생 버튼 클릭
+    onShowFeaturesClick: () -> Unit, // 음성 특징 보기 버튼 클릭
     isClonedVoice: Boolean = false
 ) {
     val dateFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
@@ -554,8 +684,8 @@ fun VoiceItemCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable { onClick() },
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        // clickable 제거 - 전체 카드 클릭으로 재생되지 않음
         colors = CardDefaults.cardColors(containerColor = if (isClonedVoice) Color(0xFFFEF9E7) else Color.White),
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -566,12 +696,13 @@ fun VoiceItemCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 아이콘 영역 (녹음 아이콘, 재생 상태에 따라 표시)
+            // 아이콘 영역 - 클릭 시 재생
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(if (isPlaying) Color(0xFFE9D364) else Color(0xFFFFEED0)),
+                    .background(if (isPlaying) Color(0xFFE9D364) else Color(0xFFFFEED0))
+                    .clickable { onPlayClick() }, // 재생 버튼 클릭 이벤트
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -619,23 +750,34 @@ fun VoiceItemCard(
                     Text(text = formattedDate, fontSize = 14.sp, color = Color.Gray)
                 }
             }
+
+            // 음성 특징 확인 버튼 추가
+            IconButton(
+                onClick = { onShowFeaturesClick() },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_notice), // 정보 아이콘 필요
+                    contentDescription = "Voice Features",
+                    tint = Color(0xFF9C8A54),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
             // 삭제 아이콘
-            Icon(
-                painter = painterResource(id = R.drawable.ic_delete),
-                contentDescription = "Delete",
-                tint = Color.Red,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable { onDelete() }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            // 재생 아이콘 (음량 아이콘)
-            Icon(
-                painter = painterResource(id = if (isPlaying) R.drawable.ic_volume_up else R.drawable.ic_play),
-                contentDescription = if (isPlaying) "Playing" else "Play",
-                tint = if (isPlaying) Color(0xFFE9B44C) else Color.Gray,
-                modifier = Modifier.size(24.dp)
-            )
+            IconButton(
+                onClick = { onDelete() },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_delete),
+                    contentDescription = "Delete",
+                    tint = Color.Red,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // 재생 아이콘 (제거 - 왼쪽의 스피커 아이콘으로 대체됨)
         }
     }
 }
