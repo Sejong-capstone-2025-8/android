@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
                 Log.d("MainActivity", "Image captured successfully")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error processing captured image: ${e.message}", e)
-                Toast.makeText(this, "이미지 처리 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "이미지 캡처 처리 중 오류 발생.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
             try {
                 capturedImageBitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
             } catch (e: Exception) {
-                Toast.makeText(this, "이미지 처리 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "이미지 가져올 때 오류 발생.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -144,7 +144,8 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                         //.navigationBarsPadding()
-                    ){NavHost(
+                    ){
+                        NavHost(
                         navController = navController,
                         startDestination = NavRoute.Login.route,
                         modifier = Modifier.fillMaxSize()
@@ -200,6 +201,7 @@ class MainActivity : ComponentActivity() {
                             VoiceListScreen(
                                 navController = navController,
                                 onRecordNewVoiceClicked = {
+                                    // 녹음하기 버튼 누르면 VoiceRecording으로 이동
                                     navController.navigate(NavRoute.VoiceRecording.route)
                                 }
                             )

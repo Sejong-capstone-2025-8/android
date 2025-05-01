@@ -1,6 +1,7 @@
 package com.toprunner.imagestory.screens
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,19 +31,32 @@ import com.toprunner.imagestory.navigation.NavRoute
 import com.toprunner.imagestory.viewmodel.GeneratedStoryViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.TextUnit
+import com.toprunner.imagestory.service.TTSService
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun GeneratedStoryScreen(
     storyId: Long,
     navController: NavController,
     generatedStoryViewModel: GeneratedStoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
+
+    // 현재 낭독 중인 문장의 인덱스
     val context = LocalContext.current
+    val ttsService = remember { TTSService(context) }
+
     // "동화에 어울리는 목소리를 추천합니다" 라는 토스트를 띄우는 람다
     val recommendVoice: () -> Unit = {
         Toast.makeText(context, "동화에 어울리는 목소리를 추천합니다.", Toast.LENGTH_SHORT).show()
     }
     val scrollState = rememberScrollState()
+    // 로컬 변수 추가
+    var localProgress by remember { mutableStateOf(0f) }
 
     // 뷰모델 상태 구독
     val storyState by generatedStoryViewModel.storyState.collectAsState()
@@ -50,14 +64,77 @@ fun GeneratedStoryScreen(
     val playbackProgress by generatedStoryViewModel.playbackProgress.collectAsState()
     val totalDuration by generatedStoryViewModel.totalDuration.collectAsState()
 
+    val configuration = LocalConfiguration.current
+    val screenWidthDp = with(LocalDensity.current) {
+        configuration.screenWidthDp.dp
+    }
+
+    var currentSentenceIndex by remember { mutableStateOf(-1) }
+
+    // 동화 내용을 문장 단위로 분리 - 더 정확한 정규식 패턴 사용
+    val storySentences = remember(storyState.storyContent) {
+        storyState.storyContent
+            .split(Regex("(?<=[.!?]\\s)|(?<=[.!?]$)"))
+            .filter { it.isNotBlank() }
+            .map { it.trim() }
+    }
+
+
+    // 재생 상태 업데이트 LaunchedEffect 수정
+    LaunchedEffect(isPlaying) {
+        if (isPlaying && storySentences.isNotEmpty()) {
+            // 1. 문장 길이 기반 누적 범위 계산 (1회만 계산)
+            val totalLength = storySentences.sumOf { it.length }
+            val sentenceRanges = buildList {
+                var cumulative = 0
+                for (s in storySentences) {
+                    val start = cumulative.toFloat() / totalLength
+                    cumulative += s.length
+                    val end = cumulative.toFloat() / totalLength
+                    add(start..end)
+                }
+            }
+
+            // 로컬에서는 ViewModel의 진행률을 관찰하고 문장 인덱스만 업데이트
+            while (isPlaying) {
+                try {
+                    val progress = playbackProgress // ViewModel의 StateFlow에서 이미 수집된 값 사용
+
+                    // 2. progress 값에 해당하는 문장 인덱스 추정 (이전과 다를 때만 업데이트)
+                    val index = sentenceRanges.indexOfFirst { range -> progress in range }
+                    if (index != -1 && index < storySentences.size && currentSentenceIndex != index) {
+                        currentSentenceIndex = index
+                    }
+
+                    // 재생이 중지되면 인덱스 초기화
+                    if (!isPlaying) {
+                        currentSentenceIndex = -1
+                    }
+                } catch (e: Exception) {
+                    Log.e("GeneratedStoryScreen", "Error updating text highlight: ${e.message}")
+                }
+
+                delay(100) // 텍스트 강조는 좀 더 긴 간격으로 업데이트
+            }
+        }
+    }
+
     // 시간 텍스트 계산 (예: progressText 및 현재 재생 시간)
     @SuppressLint("DefaultLocale")
     val progressText = "${(playbackProgress * 100).toInt()}%"
     // totalDuration은 밀리초 단위이므로 그대로 사용
-    val currentPositionSeconds = (playbackProgress * totalDuration / 1000).toInt()
-    val totalDurationSeconds = (totalDuration / 1000)
-    val currentTimeText = String.format("%d:%02d", currentPositionSeconds / 60, currentPositionSeconds % 60)
-    val audioDurationText = String.format("%d:%02d", totalDurationSeconds / 60, totalDurationSeconds % 60)
+    // 전체 시간이 0이 아닐 때만 계산
+    val currentPositionMs = (playbackProgress * totalDuration).toInt()
+    val totalDurationMs = totalDuration
+
+// 분:초 형식으로 변환
+    val currentMinutes = currentPositionMs / 60000
+    val currentSeconds = (currentPositionMs % 60000) / 1000
+    val totalMinutes = totalDurationMs / 60000
+    val totalSeconds = (totalDurationMs % 60000) / 1000
+
+    val currentTimeText = String.format("%d:%02d", currentMinutes, currentSeconds)
+    val audioDurationText = String.format("%d:%02d", totalMinutes, totalSeconds)
 
     // 동화 로드: 뷰모델에서 loadStory 호출
     LaunchedEffect(storyId) {
@@ -111,14 +188,21 @@ fun GeneratedStoryScreen(
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             if (storyState.storyImage != null && !storyState.isLoading) {
+                val imageRatio = storyState.storyImage!!.width.toFloat() / storyState.storyImage!!.height.toFloat()
+                // 최대 높이를 250dp로 제한
+                val maxHeight = 250.dp
+                // 계산된 높이가 최대 높이보다 작은 경우에만 계산된 높이 사용
+                val calculatedHeight = screenWidthDp / imageRatio
+                val imageHeight = minOf(calculatedHeight, maxHeight)
+
                 Image(
                     bitmap = storyState.storyImage!!.asImageBitmap(),
                     contentDescription = "Story Image",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
+                        .height(imageHeight)
                         .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Fit
                 )
             } else {
                 Box(
@@ -305,7 +389,7 @@ fun GeneratedStoryScreen(
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .height(36.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF5F5F5)
+                    containerColor = Color(0xFFFEE566)
                 ),
                 shape = RoundedCornerShape(8.dp),
                 enabled = !storyState.isLoading
@@ -330,38 +414,39 @@ fun GeneratedStoryScreen(
                     .weight(1f, fill = false)
                     .verticalScroll(scrollState)
             ) {
-                if (storyState.storyContent.isNotEmpty()) {
-                    val storyLines = storyState.storyContent.split("\n")
-                    storyLines.forEach { line ->
-                        if (line.isNotEmpty()) {
+                when {
+                    storySentences.isNotEmpty() -> {
+                        storySentences.forEachIndexed { index, sentence ->
+                            val isCurrent = index == currentSentenceIndex
                             Text(
-                                text = line,
+                                text = sentence,
                                 fontSize = 16.sp,
-                                color = Color.Black,
-                                modifier = Modifier.padding(top = 4.dp),
+                                color = if (isCurrent) Color(0xFFE9D364) else Color.Black,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(vertical = 4.dp),
                                 lineHeight = 24.sp
                             )
                         }
                     }
-                } else if (storyState.isLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            color = Color(0xFFE9D364)
+                    storyState.isLoading -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(150.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFFE9D364))
+                        }
+                    }
+                    else -> {
+                        Text(
+                            text = "동화 텍스트가 준비 중입니다...",
+                            fontSize = 16.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                } else {
-                    Text(
-                        text = "동화 텍스트가 준비 중입니다...",
-                        fontSize = 16.sp,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
                 Spacer(modifier = Modifier.height(80.dp))
             }
@@ -399,6 +484,8 @@ fun GeneratedStoryScreen(
         }
     }
 }
+
+
 
 
 

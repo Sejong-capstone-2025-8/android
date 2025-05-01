@@ -183,8 +183,17 @@ class TTSService(private val context: Context) {
     }
 
     fun getPlaybackProgress(): Float {
-        if (totalDuration <= 0) return 0f
-        return getCurrentPosition().toFloat() / totalDuration
+        try {
+            val current = getCurrentPosition()
+            val total = getTotalDuration()
+            return if (total > 0) {
+                // 0~1 범위로 제한
+                (current.toFloat() / total).coerceIn(0f, 1f)
+            } else 0f
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting playback progress: ${e.message}")
+            return 0f
+        }
     }
 
     fun isPlaying(): Boolean {
@@ -195,7 +204,7 @@ class TTSService(private val context: Context) {
             val mediaPlayer = MediaPlayer()
             mediaPlayer.setDataSource(audioPath)
             mediaPlayer.prepare()
-            val duration = mediaPlayer.duration / 1000 // 초 단위로 변환
+            val duration = mediaPlayer.duration  // 밀리초 단위로 반환하도록 수정
             mediaPlayer.release()
             return duration
         } catch (e: Exception) {

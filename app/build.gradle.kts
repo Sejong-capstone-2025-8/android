@@ -27,19 +27,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val gptKey        = localProperties.getProperty("gpt_api_key")        ?: ""
-        val elevenLabsKey = localProperties.getProperty("elevenlabs_api_key") ?: ""
-
-        buildConfigField(
-            "String",
-            "GPT_API_KEY",
-            "\"$gptKey\""
-        )
-        buildConfigField(
-            "String",
-            "ELEVENLABS_API_KEY",
-            "\"$elevenLabsKey\""
-        )
+        buildConfigField("String", "ELEVENLABS_API_KEY", "\"${localProperties.getProperty("elevenlabs_api_key")}\"")
+        buildConfigField("String", "GPT_API_KEY", "\"${localProperties.getProperty("gpt_api_key")}\"")
     }
 
     buildTypes {
@@ -65,6 +54,8 @@ android {
 }
 
 dependencies {
+    //tarsosDSP
+    implementation("be.tarsos.dsp:tarsos-dsp:2.5")
 
     implementation("androidx.appcompat:appcompat:1.7.0") // Example
     implementation("com.google.android.material:material:1.12.0")
