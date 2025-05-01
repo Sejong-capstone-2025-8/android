@@ -1,5 +1,6 @@
 package com.toprunner.imagestory.screens
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -154,10 +155,12 @@ fun VoiceListScreen(
             selectedVoiceTitle = voice.title
 
             try {
+                Log.d("VoiceListScreen", "Loading voice features for voice ID: ${voice.voice_id}, Title: ${voice.title}")
+
+                // 속성 JSON 로깅
+                Log.d("VoiceListScreen", "Voice attribute: ${voice.attribute}")
                 // VoiceRepository에서 음성 특징 로드
                 withContext(Dispatchers.IO) {
-                    // 특징 파일 경로 찾기
-                    val attributeJson = JSONObject(voice.attribute)
 
 
 

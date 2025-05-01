@@ -280,6 +280,15 @@ class SimpleAudioAnalyzer(private val context: Context) {
             return List(5) { DoubleArray(13) { 0.0 } }
         }
 
+        // 각 MFCC 벡터에 약간의 랜덤 노이즈 추가
+        for (i in mfccValues.indices) {
+            val mfcc = mfccValues[i]
+            for (j in mfcc.indices) {
+                // 기존 값에 약간의 랜덤 변동 추가 (-0.1에서 0.1 사이)
+                mfcc[j] += (Math.random() * 0.2 - 0.1)
+            }
+        }
+
         return mfccValues
     }
 

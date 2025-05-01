@@ -123,25 +123,29 @@ class VoiceCloneService(private val context: Context) {
             // 10.TarsosDSP를 사용하여 원본 음성 파일 분석
             val simpleAnalyzer = SimpleAudioAnalyzer(context)
             Log.d(TAG, "Analyzing source voice file: $sourceVoicePath")
-            val voiceFeatures = if (File(sourceVoicePath).exists()) {
-                simpleAnalyzer.analyzeAudio(sourceVoicePath)
-            } else {
-                // 기본값 반환
-                VoiceFeatures(
-                    averagePitch = 150.0,
-                    pitchStdDev = 15.0,
-                    mfccValues = listOf(DoubleArray(13) { 0.0 })
-                )
-            }
+            val voiceFeatures = simpleAnalyzer.analyzeAudio(sourceVoicePath)
             Log.d(TAG, "Voice analysis complete: pitch=${voiceFeatures.averagePitch}, stdDev=${voiceFeatures.pitchStdDev}")
 
-
-            // 11. 속성 JSON 생성 (복제 음성 표시용)
+            // 속성 JSON 생성 (복제 음성 표시용) - 수정
             val attributeJson = JSONObject().apply {
                 put("isClone", true)
                 put("originalVoicePath", sourceVoicePath)
                 put("elevenlabsVoiceId", voiceId)
                 put("voiceType", "custom_clone")
+                // 아래 특성값 직접 저장 추가
+                put("averagePitch", voiceFeatures.averagePitch)
+                put("pitchStdDev", voiceFeatures.pitchStdDev)
+
+                // MFCC 값도 저장
+                val mfccArray = JSONArray()
+                for (coeffs in voiceFeatures.mfccValues) {
+                    val coeffArray = JSONArray()
+                    for (coeff in coeffs) {
+                        coeffArray.put(coeff)
+                    }
+                    mfccArray.put(coeffArray)
+                }
+                put("mfccValues", mfccArray)
             }.toString()
 
             // 12. 저장소에 저장
