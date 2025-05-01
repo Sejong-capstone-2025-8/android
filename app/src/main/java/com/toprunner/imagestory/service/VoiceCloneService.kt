@@ -5,6 +5,7 @@ import android.util.Log
 import com.toprunner.imagestory.BuildConfig
 import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.repository.VoiceRepository
+import com.toprunner.imagestory.util.AudioAnalyzer
 import com.toprunner.imagestory.util.FileStorageManager
 import com.toprunner.imagestory.util.NetworkUtil
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,7 @@ class VoiceCloneService(private val context: Context) {
             if (!sourceFile.exists()) {
                 return@withContext Pair(false, "원본 음성 파일을 찾을 수 없습니다.")
             }
+
 
             // 2. API 요청 헤더 설정
             val headers = mapOf(
@@ -111,12 +113,18 @@ class VoiceCloneService(private val context: Context) {
                 return@withContext Pair(false, "샘플 오디오 생성에 실패했습니다.")
             }
 
-            // 10. 복제 음성 저장
-            val voiceFeatures = VoiceFeatures(
-                averagePitch = 120.0, // 기본값 사용
-                pitchStdDev = 15.0,   // 기본값 사용
-                mfccValues = listOf(DoubleArray(13) { 0.0 }) // 기본값 사용
-            )
+//            // 10... 샘플값은 나중을 위해 남겨둠
+//            val voiceFeatures = VoiceFeatures(
+//                averagePitch = 120.0, // 기본값 사용
+//                pitchStdDev = 15.0,   // 기본값 사용
+//                mfccValues = listOf(DoubleArray(13) { 0.0 }) // 기본값 사용
+//            )
+            // 10.TarsosDSP를 사용하여 원본 음성 파일 분석
+            val audioAnalyzer = AudioAnalyzer(context)
+            Log.d(TAG, "Analyzing source voice file: $sourceVoicePath")
+            val voiceFeatures = audioAnalyzer.analyzeAudioFile(sourceVoicePath)
+            Log.d(TAG, "Voice analysis complete: pitch=${voiceFeatures.averagePitch}, stdDev=${voiceFeatures.pitchStdDev}")
+
 
             // 11. 속성 JSON 생성 (복제 음성 표시용)
             val attributeJson = JSONObject().apply {

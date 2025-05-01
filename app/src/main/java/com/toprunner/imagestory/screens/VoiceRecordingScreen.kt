@@ -2,6 +2,7 @@ package com.toprunner.imagestory.screens
 
 import android.Manifest
 import android.media.MediaRecorder
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,9 +28,12 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.toprunner.imagestory.R
+import com.toprunner.imagestory.SimpleAudioAnalyzer
 import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.navigation.NavRoute
 import com.toprunner.imagestory.repository.VoiceRepository
+import com.toprunner.imagestory.ui.components.ImprovedVoiceFeatureVisualization
+import com.toprunner.imagestory.util.AudioAnalyzer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -63,6 +67,8 @@ fun VoiceRecordingScreen(
     var recordingTimeSeconds by remember { mutableStateOf(0) }
     var recordingProgress by remember { mutableStateOf(0) }
 
+
+
     // 녹음 샘플 텍스트
     val sampleText = "안녕하세요. 이 텍스트를 읽어주세요. 이 녹음은 당신의 목소리로 동화를 읽어주기 위한 샘플로 사용됩니다. 천천히 또박또박 읽어주세요."
 
@@ -80,6 +86,24 @@ fun VoiceRecordingScreen(
 
     // 오디오 분석 도구 (실제 구현 시 TarsosDSP 등으로 대체)
     val pitchAnalyzer = remember { PitchAndMfccAnalyzer() }
+    // 오디오 분석 도구
+    val simpleAnalyzer = SimpleAudioAnalyzer(context)
+    val result = if (recordFilePath != null) {
+        simpleAnalyzer.analyzeAudio(recordFilePath!!)
+    } else {
+        // 기본값 반환
+        VoiceFeatures(
+            averagePitch = 150.0,
+            pitchStdDev = 15.0,
+            mfccValues = listOf(DoubleArray(13) { 0.0 })
+        )
+    }
+
+    var isAnalyzing by remember { mutableStateOf(false) }
+    // 음성 분석 결과를 저장할 상태 변수
+    var analysisComplete by remember { mutableStateOf(false) }
+    var analyzedFeatures by remember { mutableStateOf<VoiceFeatures?>(null) }
+
 
     // 권한 요청
     LaunchedEffect(Unit) {
@@ -172,8 +196,24 @@ fun VoiceRecordingScreen(
 
         scope.launch(Dispatchers.IO) {
             try {
-                // 실제 녹음된 파일에 대해 피치, MFCC 분석
-                val analysisResult = pitchAnalyzer.analyzeAudio(recordFilePath!!)
+                // 분석 시작 상태로 변경
+                isAnalyzing = true
+                analysisComplete = false
+
+                // 파일 경로를 로그로 출력
+                Log.d("VoiceRecordingScreen", "Analyzing audio file: $recordFilePath")
+
+
+                // 분석 결과를 UI에 표시하기 위해 상태 업데이트
+                withContext(Dispatchers.Main) {
+                    analyzedFeatures = result
+                    analysisComplete = true
+                    isAnalyzing = false
+                    Toast.makeText(context, "음성 분석값 생성 중...", Toast.LENGTH_SHORT).show()
+                    // 분석 결과 로그 출력
+                    Log.d("VoiceRecordingScreen", "Analysis complete: pitchAvg=${result.averagePitch}, stdDev=${result.pitchStdDev}")
+
+                }
 
                 // DB에 저장 (VoiceRepository 사용)
                 val voiceRepo = VoiceRepository(context)
@@ -186,19 +226,61 @@ fun VoiceRecordingScreen(
                     title = voiceTitle,
                     attributeJson = attributeJson,
                     audioData = fileBytes,
-                    voiceFeatures = analysisResult
+                    voiceFeatures = result
                 )
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "목소리가 저장되었습니다 (ID: $voiceId)", Toast.LENGTH_SHORT).show()
-                    navController.navigate(NavRoute.VoiceList.route) {
-                        popUpTo(NavRoute.VoiceList.route) { inclusive = true }
-                    }
+//                    navController.navigate(NavRoute.VoiceList.route) { // 이 부분은 UI/UX 분석후 수정, 일단 보류
+//                        popUpTo(NavRoute.VoiceList.route) { inclusive = true }
+//                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
+                    isAnalyzing = false
                     Toast.makeText(context, "녹음 분석 오류: ${e.message}", Toast.LENGTH_LONG).show()
+                    Log.e("VoiceRecordingScreen", "Analysis error", e)
+
                 }
+            }
+        }
+    }
+
+    @Composable
+    fun VoiceFeatureVisualization(voiceFeatures: VoiceFeatures) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "평균 피치: ${voiceFeatures.averagePitch.toInt()} Hz",
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = "피치 표준편차: ${voiceFeatures.pitchStdDev.toInt()} Hz",
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 피치 시각화 (간단한 수평 바)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color.LightGray)
+            ) {
+                // 피치에 따라 바 크기 조정 (50Hz~350Hz 범위 가정)
+                val fillPercent = (voiceFeatures.averagePitch - 50) / 300
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(fillPercent.toFloat().coerceIn(0f, 1f))
+                        .background(Color(0xFFE9D364))
+                )
             }
         }
     }
@@ -208,6 +290,7 @@ fun VoiceRecordingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFFFFBF0))
+            .verticalScroll(scrollState)
     ) {
         // 상단 헤더
         Box(
@@ -362,7 +445,56 @@ fun VoiceRecordingScreen(
                 color = if (!isRecording && recordingTimeSeconds > 0) Color.Black else Color.Gray
             )
         }
+        // 분석 중 표시
+        if (isAnalyzing) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFFE9D364)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "음성 특징을 분석하는 중입니다...",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // 분석 결과 표시 섹션
+        if (analysisComplete && analyzedFeatures != null) {
+            HorizontalDivider(
+                color = Color(0xFFE0E0E0),
+                thickness = 1.5.dp,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+
+            Text(
+                text = "음성 분석 결과",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // 기존의 VoiceFeatureVisualization 함수 호출
+            //VoiceFeatureVisualization(voiceFeatures = analyzedFeatures!!)
+
+            // 향상된 음성 특징 시각화 구성 요소 사용
+            ImprovedVoiceFeatureVisualization(voiceFeatures = analyzedFeatures!!)
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }

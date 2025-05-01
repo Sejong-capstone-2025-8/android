@@ -116,7 +116,7 @@ fun VoiceListScreen(
     }
 
     // 재생/정지 토글 함수
-    fun toggleVoice(voice: VoiceEntity) {
+    fun toggleVoice(voice: VoiceEntity) = scope.launch {
         // 현재 재생 중인 목소리가 있다면 정지
         if (currentPlayingVoiceId != null && currentPlayingVoiceId != voice.voice_id) {
             ttsService.stopAudio()

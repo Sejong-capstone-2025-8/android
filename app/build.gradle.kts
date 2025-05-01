@@ -55,7 +55,9 @@ android {
 
 dependencies {
     //tarsosDSP
-    implementation("be.tarsos.dsp:tarsos-dsp:2.5")
+//    implementation("be.tarsos.dsp:core:2.5")
+//    implementation("be.tarsos.dsp:jvm:2.5")
+    implementation ("com.github.st-h:TarsosDSP:2.4.1")
 
     implementation("androidx.appcompat:appcompat:1.7.0") // Example
     implementation("com.google.android.material:material:1.12.0")
@@ -77,6 +79,7 @@ dependencies {
     implementation("androidx.room:room-ktx:2.7.0")
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.androidx.media3.common.ktx)
     kapt("androidx.room:room-compiler:2.7.0")
 
     // ViewModel & LiveData
