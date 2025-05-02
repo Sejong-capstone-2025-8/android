@@ -2,18 +2,27 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.toprunner.imagestory.R
+import java.time.format.TextStyle
 
 @Composable
 fun LoginScreen(
@@ -25,6 +34,7 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val auth = FirebaseAuth.getInstance()
+
     // 구글 로그인 관련 설정
     val googleSignInClient = remember {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -64,18 +74,32 @@ fun LoginScreen(
         }
     }
 
+
 //firebase 로그인 인증 과정
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("로그인", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("이메일") })
-        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("비밀번호") })
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("이메일") },singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp))
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("비밀번호") },singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp),
+            visualTransformation = PasswordVisualTransformation(),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
         //이메일 로그인
         Button(onClick = {
             if (email.isBlank() || password.isBlank()) {
@@ -92,22 +116,36 @@ fun LoginScreen(
                         }
                     }
             }
-        }) {
+        }, modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp))
+        {
             Text("로그인")
         }
         //회원가입 버튼
         TextButton(onClick = onRegisterClick) {
-            Text("회원가입 하러가기")
+            Text("회원가입",color = Color.Gray)
+
         }
         // 구글 로그인 버튼 추가
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = {
-            val signInIntent = googleSignInClient.signInIntent
-            signInLauncher.launch(signInIntent)
-        }) {
-            Text("구글 로그인")
+        IconButton(
+            onClick = {
+                val signInIntent = googleSignInClient.signInIntent
+                signInLauncher.launch(signInIntent)
+            },
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.LightGray)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.google_icon),
+                contentDescription = "구글 로그인",
+                modifier = Modifier.size(24.dp),
+                tint = Color.Unspecified
+            )
+
         }
-
     }
-
 }
