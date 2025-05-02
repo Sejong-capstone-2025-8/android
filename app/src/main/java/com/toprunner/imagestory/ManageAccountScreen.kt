@@ -219,15 +219,16 @@ fun ManageAccountScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
         }
-        Button(
-            onClick = { showDeleteDialog = true },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text("계정 삭제", fontSize = 16.sp, color = Color.White)
+        if (!isGoogleUser) {
+            Button(
+                onClick = { showDeleteDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("계정 삭제", fontSize = 16.sp, color = Color.White)
+            }
         }
-
         // 변경 다이얼로그
         if (showChangePwdDialog) {
             // 상태 변수
