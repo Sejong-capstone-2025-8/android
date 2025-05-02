@@ -1,7 +1,7 @@
 package com.toprunner.imagestory
 
-import LoginScreen
-import RegisterScreen
+import com.toprunner.imagestory.LoginScreen
+import com.toprunner.imagestory.RegisterScreen
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
                     ){
                         NavHost(
                         navController = navController,
-                        startDestination = NavRoute.Home.route,
+                        startDestination = NavRoute.Login.route,
                         modifier = Modifier.fillMaxSize()
 
                     ) {
@@ -259,6 +259,17 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+
+                            //계정 관리 화면
+                            composable(NavRoute.ManageAccount.route) {
+                                ManageAccountScreen(navController = navController)
+                            }
+                            //계정 정보 수정 화면
+                            composable(NavRoute.EditAccount.route) {
+                                EditAccountScreen(navController = navController)
+                            }
+
+
 
                         // 생성된 동화 화면
                         composable(

@@ -69,14 +69,14 @@ fun SettingsScreen(
         SettingsItemCard(
             icon = R.drawable.ic_account,
             title = "계정 정보 관리",
-            onClick = { /* Account management functionality */ }
+            onClick = { navController.navigate(NavRoute.ManageAccount.route)}
         )
 
-        SettingsItemCard(
+        /*SettingsItemCard(
             icon = R.drawable.ic_notice,
             title = "공지사항 확인하기",
             onClick = { onLogoutClicked() }
-        )
+        )*/
 
         SettingsItemCard(
             icon = R.drawable.ic_logout,
