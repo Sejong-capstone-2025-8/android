@@ -236,7 +236,14 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-
+                        //계정 관리 화면
+                        composable(NavRoute.ManageAccount.route) {
+                            ManageAccountScreen(navController = navController)
+                        }
+                        //계정 정보 수정 화면
+                        composable(NavRoute.EditAccount.route) {
+                            EditAccountScreen(navController = navController)
+                        }
                         // 생성된 동화 화면
                         composable(
                             route = NavRoute.GeneratedStory.route,

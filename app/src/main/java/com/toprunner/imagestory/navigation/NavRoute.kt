@@ -8,6 +8,8 @@ sealed class NavRoute(val route: String) {
     object VoiceList : NavRoute("voice_list")
     object MusicList : NavRoute("music_list")
     object Settings : NavRoute("settings")
+    object ManageAccount : NavRoute("manage_account") //  manage account
+    object EditAccount : NavRoute("edit_account_screen")   // edit account
     object GeneratedStory : NavRoute("generated_story/{storyId}") {
         fun createRoute(storyId: Long) = "generated_story/$storyId"
     }
