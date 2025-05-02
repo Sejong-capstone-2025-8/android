@@ -1,50 +1,92 @@
 package com.toprunner.imagestory.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.toprunner.imagestory.R
 import com.toprunner.imagestory.data.database.AppDatabase
-import com.toprunner.imagestory.data.entity.FairyTaleEntity
 import com.toprunner.imagestory.navigation.NavRoute
 import com.toprunner.imagestory.repository.FairyTaleRepository
 import com.toprunner.imagestory.viewmodel.FairyTaleViewModel
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FairyTaleListScreen(navController: NavController) {
+fun FairyTaleListScreen(
+    navController: NavController,
+    viewModel: FairyTaleViewModel? = null
+) {
     val backgroundColor = Color(0xFFFFFBF0) // 밝은 크림색 배경
-
-
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val db = AppDatabase.getInstance(context)
-    val fairyTaleViewModel = remember {
+
+    // 뷰모델 생성 또는 재사용
+    val fairyTaleViewModel = viewModel ?: remember {
         FairyTaleViewModel(FairyTaleRepository(context))
     }
+
     val fairyTales by fairyTaleViewModel.fairyTales.collectAsState()
     val isLoading by fairyTaleViewModel.isLoading.collectAsState()
+    val isCreatingNewStory by fairyTaleViewModel.isCreatingNewStory.collectAsState()
 
-
+    // 데이터 로드
     LaunchedEffect(Unit) {
         fairyTaleViewModel.loadFairyTales()
+    }
+
+    // 삭제 확인 다이얼로그 상태
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var fairyTaleToDelete by remember { mutableStateOf<Long?>(null) }
+
+    // 삭제 확인 다이얼로그
+    if (showDeleteDialog && fairyTaleToDelete != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+                fairyTaleToDelete = null
+            },
+            title = { Text("동화 삭제") },
+            text = { Text("이 동화를 삭제하시겠습니까? 삭제한 동화는 복구할 수 없습니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // 삭제 실행
+                        fairyTaleToDelete?.let { id ->
+                            scope.launch {
+                                fairyTaleViewModel.deleteFairyTale(id)
+                            }
+                        }
+                        showDeleteDialog = false
+                        fairyTaleToDelete = null
+                    }
+                ) {
+                    Text("삭제", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        fairyTaleToDelete = null
+                    }
+                ) {
+                    Text("취소")
+                }
+            }
+        )
     }
 
     Column(
@@ -52,15 +94,14 @@ fun FairyTaleListScreen(navController: NavController) {
             .fillMaxSize()
             .background(backgroundColor)
     ) {
-        // 상단 헤더
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp), // 여기서 vertical 패딩을 줄임 (16.dp에서 8.dp로)
+            contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "동화 리스트",
-                modifier = Modifier.align(Alignment.Center),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
@@ -115,106 +156,50 @@ fun FairyTaleListScreen(navController: NavController) {
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    items(fairyTales) { fairyTale ->
+                    items(fairyTales, key = { it.fairy_tales_id }) { fairyTale ->
                         FairyTaleItemCard(
                             fairyTale = fairyTale,
                             onClick = {
                                 navController.navigate(NavRoute.GeneratedStory.createRoute(fairyTale.fairy_tales_id))
                             },
                             onDelete = {
-                                // 삭제 전 확인 다이얼로그(간단히 구현)
-                                // 필요시 AlertDialog를 보여줄 수 있음
-                                fairyTaleViewModel.deleteFairyTale(fairyTale.fairy_tales_id)
+                                // 삭제 확인 다이얼로그 표시
+                                fairyTaleToDelete = fairyTale.fairy_tales_id
+                                showDeleteDialog = true
                             }
                         )
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun FairyTaleItemCard(
-    fairyTale: FairyTaleEntity,
-    onClick: () -> Unit,
-    onDelete: () -> Unit ) {
-    val dateFormat = SimpleDateFormat("yyyy.MM.dd", Locale.getDefault())
-    val formattedDate = dateFormat.format(Date(fairyTale.created_at))
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        ),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 아이콘
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFFFFEED0)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_bookmark),
-                    contentDescription = "Fairy Tale",
-                    tint = Color(0xFFE9B44C),
-                    modifier = Modifier.size(24.dp)
-                )
+            // 새 동화 생성 중 오버레이
+            if (isCreatingNewStory) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(60.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "추천된 음성으로 동화를 생성하는 중입니다...",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp)
+                        )
+                    }
+                }
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // 텍스트 정보 (제목, 날짜)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = fairyTale.title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = formattedDate,
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-            }
-
-            // 삭제 아이콘
-            Icon(
-                painter = painterResource(id = R.drawable.ic_delete),
-                contentDescription = "Delete",
-                tint = Color.Red,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable { onDelete() }
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // 화살표 아이콘 (상세화면 이동)
-            Icon(
-                painter = painterResource(id = R.drawable.ic_arrow_forward),
-                contentDescription = "Open",
-                tint = Color.Gray,
-                modifier = Modifier.size(20.dp)
-            )
         }
+
     }
 }

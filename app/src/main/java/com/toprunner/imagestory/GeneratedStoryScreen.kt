@@ -1,6 +1,7 @@
-package com.toprunner.imagestory.screens
+package com.toprunner.imagestory
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,22 +30,35 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.toprunner.imagestory.R
 import com.toprunner.imagestory.navigation.NavRoute
-import com.toprunner.imagestory.viewmodel.GeneratedStoryViewModel
-import kotlinx.coroutines.delay
+import com.toprunner.imagestory.ui.components.VoiceRecommendationDialog
+import com.toprunner.imagestory.viewmodel.FairyTaleViewModel
+import com.toprunner.imagestory.GeneratedStoryViewModel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import com.toprunner.imagestory.repository.FairyTaleRepository
+import com.toprunner.imagestory.model.VoiceFeatures
+import kotlinx.coroutines.delay
 
 @Composable
 fun GeneratedStoryScreen(
     storyId: Long,
+    bgmPath: String? = null,
     navController: NavController,
-    generatedStoryViewModel: GeneratedStoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    generatedStoryViewModel: GeneratedStoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    fairyTaleViewModel: FairyTaleViewModel? = null
 ) {
     val context = LocalContext.current
-    // "동화에 어울리는 목소리를 추천합니다" 라는 토스트를 띄우는 람다
-    val recommendVoice: () -> Unit = {
-        Toast.makeText(context, "동화에 어울리는 목소리를 추천합니다.", Toast.LENGTH_SHORT).show()
+
+    LaunchedEffect(storyId, bgmPath) {
+        generatedStoryViewModel.loadStory(storyId, context, bgmPath)
     }
+    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+
+    // FairyTaleViewModel 생성 (만약 전달받지 않았다면)
+    val localFairyTaleViewModel = fairyTaleViewModel ?: remember {
+        FairyTaleViewModel(FairyTaleRepository(context))
+    }
 
     // 뷰모델 상태 구독
     val storyState by generatedStoryViewModel.storyState.collectAsState()
@@ -52,24 +66,133 @@ fun GeneratedStoryScreen(
     val playbackProgress by generatedStoryViewModel.playbackProgress.collectAsState()
     val totalDuration by generatedStoryViewModel.totalDuration.collectAsState()
 
-    // 시간 텍스트 계산 (예: progressText 및 현재 재생 시간)
+    // 음성 추천 관련 상태
+    val recommendationState by generatedStoryViewModel.recommendationState.collectAsState()
+    var showRecommendationDialog by remember { mutableStateOf(false) }
+
+    // BGM 관련 상태 구독
+    val isBgmPlaying by generatedStoryViewModel.isBgmPlaying.collectAsState()
+    val bgmVolume by generatedStoryViewModel.bgmVolume.collectAsState()
+    val bgmPath by generatedStoryViewModel.bgmPath.collectAsState()
+
+    // 시간 텍스트 계산
     @SuppressLint("DefaultLocale")
     val progressText = "${(playbackProgress * 100).toInt()}%"
-    // totalDuration은 밀리초 단위이므로 그대로 사용
     val currentPositionSeconds = (playbackProgress * totalDuration / 1000).toInt()
     val totalDurationSeconds = (totalDuration / 1000)
     val currentTimeText = String.format("%d:%02d", currentPositionSeconds / 60, currentPositionSeconds % 60)
     val audioDurationText = String.format("%d:%02d", totalDurationSeconds / 60, totalDurationSeconds % 60)
 
-    // 동화 로드: 뷰모델에서 loadStory 호출
-    LaunchedEffect(storyId) {
-        generatedStoryViewModel.loadStory(storyId, context)
+    // 동화 내용을 문장 단위로 분리
+    val storySentences = remember(storyState.storyContent) {
+        storyState.storyContent
+            .split(Regex("(?<=[.!?]\\s)|(?<=[.!?]$)"))
+            .filter { it.isNotBlank() }
+            .map { it.trim() }
     }
 
-    // 슬라이더 onValueChange: 새 위치 계산 (totalDuration은 밀리초 단위)
-    val onSliderValueChange: (Float) -> Unit = { newValue ->
-        val newPositionMs = (newValue * totalDuration).toInt()
-        generatedStoryViewModel.seekTo(newPositionMs)
+    // 현재 문장 인덱스
+    var currentSentenceIndex by remember { mutableStateOf(-1) }
+
+    // 재생 상태에 따른 현재 문장 하이라이트
+    LaunchedEffect(isPlaying) {
+        if (isPlaying && storySentences.isNotEmpty()) {
+            // 문장 길이 기반 누적 범위 계산
+            val totalLength = storySentences.sumOf { it.length }
+            val sentenceRanges = buildList {
+                var cumulative = 0
+                for (s in storySentences) {
+                    val start = cumulative.toFloat() / totalLength
+                    cumulative += s.length
+                    val end = cumulative.toFloat() / totalLength
+                    add(start..end)
+                }
+            }
+
+            // 재생 진행에 따른 현재 문장 업데이트
+            while (isPlaying) {
+                try {
+                    val progress = playbackProgress
+                    val index = sentenceRanges.indexOfFirst { range -> progress in range }
+                    if (index != -1 && index < storySentences.size && currentSentenceIndex != index) {
+                        currentSentenceIndex = index
+                    }
+
+                    if (!isPlaying) {
+                        currentSentenceIndex = -1
+                    }
+                } catch (e: Exception) {
+                    Log.e("GeneratedStoryScreen", "Error updating text highlight: ${e.message}")
+                }
+
+                delay(100)
+            }
+        }
+    }
+
+    // 음성 추천 함수
+    fun handleVoiceRecommendation() {
+        // 추천 다이얼로그 표시 및 뷰모델에 추천 요청
+        showRecommendationDialog = true
+        generatedStoryViewModel.recommendVoice(context)
+    }
+
+    // 추천된 음성으로 새 동화 생성 함수
+    fun createStoryWithRecommendedVoice() {
+        scope.launch {
+            try {
+                // 동화 생성 시작 상태 설정 (FairyTaleViewModel에서 로딩 표시용)
+                localFairyTaleViewModel.startCreatingRecommendedVoiceStory()
+
+                // 뷰모델을 통해 새 동화 생성
+                generatedStoryViewModel.createStoryWithRecommendedVoice(context)
+
+                // 성공 메시지
+                Toast.makeText(
+                    context,
+                    "추천된 음성으로 동화가 생성되었습니다.",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                // 동화 목록 갱신
+                localFairyTaleViewModel.finishCreatingRecommendedVoiceStory()
+
+                // 생성 성공 시 동화 목록 화면으로 이동
+                navController.navigate(NavRoute.FairyTaleList.route) {
+                    popUpTo(NavRoute.FairyTaleList.route) { inclusive = true }
+                }
+
+            } catch (e: Exception) {
+                // 오류 처리
+                localFairyTaleViewModel.finishCreatingRecommendedVoiceStory()
+                Toast.makeText(
+                    context,
+                    "동화 생성 중 오류가 발생했습니다: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    // 새 동화 생성 완료 시 네비게이션 처리
+    LaunchedEffect(recommendationState.newStoryCreated) {
+        if (recommendationState.newStoryCreated && recommendationState.newStoryId > 0) {
+            // 상태 초기화
+            generatedStoryViewModel.resetNewStoryState()
+
+            // 동화 목록 갱신
+            localFairyTaleViewModel.loadFairyTales()
+
+            // 동화 목록 화면으로 네비게이션
+            navController.navigate(NavRoute.FairyTaleList.route) {
+                popUpTo(NavRoute.FairyTaleList.route) { inclusive = true }
+            }
+        }
+    }
+
+    // 동화 로드
+    LaunchedEffect(storyId) {
+        generatedStoryViewModel.loadStory(storyId, context)
     }
 
     Column(
@@ -171,7 +294,10 @@ fun GeneratedStoryScreen(
         // 슬라이더 (드래그하여 재생 위치 이동)
         Slider(
             value = playbackProgress,
-            onValueChange = onSliderValueChange,
+            onValueChange = { newValue ->
+                val newPositionMs = (newValue * totalDuration).toInt()
+                generatedStoryViewModel.seekTo(newPositionMs)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
@@ -211,10 +337,10 @@ fun GeneratedStoryScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 재생/일시정지 버튼: 뷰모델의 toggleAudioPlayback() 호출
+            // 재생/일시정지 버튼
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFE9D364))
                     .clickable { generatedStoryViewModel.toggleAudioPlayback() },
@@ -230,10 +356,11 @@ fun GeneratedStoryScreen(
                 )
             }
             Spacer(modifier = Modifier.width(24.dp))
+
             // 정지 버튼
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFE9D364))
                     .clickable { generatedStoryViewModel.stopAudio() },
@@ -246,8 +373,59 @@ fun GeneratedStoryScreen(
                     modifier = Modifier.size(24.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.width(24.dp))
+
+            // BGM 컨트롤 버튼
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF9ED8D8))
+                    .clickable {
+                        Log.d("GeneratedStoryScreen", "배경음 버튼 클릭")
+                        generatedStoryViewModel.toggleBackgroundMusic()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(
+                        id = if (isBgmPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                    ),
+                    contentDescription = if (isBgmPlaying) "BGM Pause" else "BGM Play",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
+        // BGM 음량 조절 슬라이더
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "배경음 음량 조절",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.DarkGray
+            )
+            Slider(
+                value = bgmVolume,
+                onValueChange = { newVolume ->
+                    generatedStoryViewModel.setBackgroundMusicVolume(newVolume)
+                },
+                valueRange = 0f..1f,
+                steps = 8, // 10단계 정도로 나눔 (0.0 ~ 1.0)
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFFAA8866),
+                    activeTrackColor = Color(0xFFAA8866)
+                )
+            )
+        }
+
+        // 기능 버튼 영역 (목소리 선택, 배경음 설정, 목소리 추천)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -272,7 +450,7 @@ fun GeneratedStoryScreen(
             }
 
             Button(
-                onClick = { navController.navigate(NavRoute.MusicList.route) },
+                onClick = { navController.navigate(NavRoute.MusicList.routeWithArgs(storyId)) },
                 modifier = Modifier
                     .weight(1f)
                     .height(36.dp)
@@ -288,7 +466,7 @@ fun GeneratedStoryScreen(
             }
 
             Button(
-                onClick = { recommendVoice() },
+                onClick = { handleVoiceRecommendation() },
                 modifier = Modifier
                     .weight(1f)
                     .height(36.dp)
@@ -305,10 +483,9 @@ fun GeneratedStoryScreen(
             }
         }
 
-
+        // 동화 텍스트 영역
         val sentencePositions = remember { mutableStateMapOf<Int, Int>() }
 
-        // 동화 텍스트 영역
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -316,53 +493,28 @@ fun GeneratedStoryScreen(
                 .weight(1f, fill = false)
                 .verticalScroll(scrollState)
         ) {
-            if (storyState.storyContent.isNotEmpty()) {
-                val sentenceRegex = Regex("(?<=[.!?])\\s+")
-
-                val storyLines = remember(storyState.storyContent) {
-                    storyState.storyContent.split(sentenceRegex).filter { it.isNotBlank() }
-                }
-
-                // 전체 텍스트 길이
-                val totalLength = remember(storyLines) {
-                    storyLines.sumOf { it.length }
-                }
-
-                // 누적 비율 리스트 생성
-                val cumulativeRatios = remember(storyLines) {
-                    val list = mutableListOf<Float>()
-                    var cumulative = 0f
-                    for (line in storyLines) {
-                        cumulative += line.length
-                        list.add(cumulative / totalLength)
-                    }
-                    list
-                }
-
-                // 현재 문장 인덱스 계산
-                val currentSentenceIndex = cumulativeRatios.indexOfFirst { it >= playbackProgress }
-
-                // 오토 스크롤 트리거
-                LaunchedEffect(currentSentenceIndex) {
-                    sentencePositions[currentSentenceIndex]?.let { y ->
-                        scrollState.animateScrollTo(y)
-                    }
-                }
-
-                storyLines.forEachIndexed { index, line ->
+            if (storySentences.isNotEmpty()) {
+                storySentences.forEachIndexed { index, sentence ->
                     val isCurrent = index == currentSentenceIndex
                     Text(
-                        text = line,
+                        text = sentence,
                         fontSize = 16.sp,
-                        color = if (isCurrent) Color(0xFFFFC107) else Color.Black,
+                        color = if (isCurrent) Color(0xFFE9D364) else Color.Black,
                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                         modifier = Modifier
-                            .padding(top = 4.dp)
+                            .padding(vertical = 4.dp)
                             .onGloballyPositioned { coordinates ->
                                 sentencePositions[index] = coordinates.positionInParent().y.toInt()
                             },
                         lineHeight = 24.sp
                     )
+                }
+
+                // 현재 문장으로 자동 스크롤
+                LaunchedEffect(currentSentenceIndex) {
+                    sentencePositions[currentSentenceIndex]?.let { y ->
+                        scrollState.animateScrollTo(y)
+                    }
                 }
             } else if (storyState.isLoading) {
                 Box(
@@ -388,7 +540,26 @@ fun GeneratedStoryScreen(
         }
     }
 
+    // 음성 추천 다이얼로그
+    if (showRecommendationDialog) {
+        VoiceRecommendationDialog(
+            isLoading = recommendationState.isLoading || recommendationState.cloneCreationInProgress,
+            storyFeatures = storyState.voiceFeatures ?: VoiceFeatures(
+                averagePitch = 150.0,
+                pitchStdDev = 15.0,
+                mfccValues = listOf(DoubleArray(13) { 0.0 })
+            ),
+            recommendedVoice = recommendationState.recommendedVoice,
+            similarityPercentage = recommendationState.similarityPercentage,
+            onDismiss = { showRecommendationDialog = false },
+            onUseRecommendedVoice = {
+                showRecommendationDialog = false
+                createStoryWithRecommendedVoice()
+            }
+        )
+    }
 
+    // 전체 로딩 표시
     if (storyState.isLoading) {
         Box(
             modifier = Modifier
@@ -414,30 +585,38 @@ fun GeneratedStoryScreen(
         }
     }
 
+    // 동화 목록 화면에서 로딩 상태 표시
+    val isCreatingNewStory by localFairyTaleViewModel.isCreatingNewStory.collectAsState()
+    if (isCreatingNewStory) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(60.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "추천된 음성으로 동화를 생성하는 중입니다...",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+            }
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             generatedStoryViewModel.stopAudio()
         }
     }
-}
-
-
-
-
-// 오디오 시간 업데이트 함수
-@SuppressLint("DefaultLocale")
-private fun updateAudioDurationText(totalDurationMs: Int, audioDuration: (String) -> Unit) {
-    val minutes = totalDurationMs / 60000
-    val seconds = (totalDurationMs % 60000) / 1000
-    audioDuration(String.format("%d:%02d", minutes, seconds))
-}
-
-private fun getTotalDurationInSeconds(durationText: String): Int {
-    // durationText는 "m:ss" 형식이라고 가정
-    val parts = durationText.split(":")
-    return if (parts.size >= 2) {
-        val minutes = parts[0].toIntOrNull() ?: 0
-        val seconds = parts[1].toIntOrNull() ?: 0
-        minutes * 60 + seconds
-    } else 0
 }

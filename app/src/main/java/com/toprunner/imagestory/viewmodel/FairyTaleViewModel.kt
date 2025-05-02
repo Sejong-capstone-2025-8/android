@@ -18,6 +18,10 @@ class FairyTaleViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    private val _isCreatingNewStory = MutableStateFlow(false)
+    val isCreatingNewStory: StateFlow<Boolean> = _isCreatingNewStory
+
+
     init {
         loadFairyTales()
     }
@@ -37,10 +41,19 @@ class FairyTaleViewModel(
         }
     }
 
-    fun deleteFairyTale(fairyTaleId: Long) { // ← 타입 수정됨
+    fun deleteFairyTale(fairyTaleId: Long) { // 타입 수정됨
         viewModelScope.launch {
             fairyTaleRepository.deleteFairyTale(fairyTaleId)
             loadFairyTales()
         }
+    }
+    // 추천 음성으로 동화 생성 시작 시 호출
+    fun startCreatingRecommendedVoiceStory() {
+        _isCreatingNewStory.value = true
+    }
+    fun finishCreatingRecommendedVoiceStory() {
+        _isCreatingNewStory.value = false
+        // 동화 목록 갱신
+        loadFairyTales()
     }
 }

@@ -58,6 +58,11 @@ fun VoiceListScreen(
     var currentPlayingVoiceId by remember { mutableStateOf<Long?>(null) }
     val scope = rememberCoroutineScope()
 
+    // 삭제 확인 다이얼로그 상태
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var voiceToDelete by remember { mutableStateOf<VoiceEntity?>(null) }
+
+
     // 클론 음성 생성 관련 다이얼로그 상태
     var showCloneDialog by remember { mutableStateOf(false) }
     var selectedVoiceForClone by remember { mutableStateOf<VoiceEntity?>(null) }
@@ -97,8 +102,21 @@ fun VoiceListScreen(
     }
 
     // 삭제 함수 (VoiceRepository.deleteVoice를 호출)
-    fun deleteVoice(voiceId: Long) {
+    fun deleteVoice(voice: VoiceEntity) {
+        // 삭제 확인 다이얼로그 표시
+        voiceToDelete = voice
+        showDeleteDialog = true
+    }
+
+    // 실제 삭제 수행 함수
+    fun performDelete(voiceId: Long) {
         scope.launch {
+            // 재생 중이면 중지
+            if (currentPlayingVoiceId == voiceId) {
+                ttsService.stopAudio()
+                currentPlayingVoiceId = null
+            }
+
             val success = repo.deleteVoice(voiceId)
             if (success) {
                 // 기본 음성 및 클론 음성 목록 갱신
@@ -119,6 +137,8 @@ fun VoiceListScreen(
                         false
                     }
                 }
+
+                Toast.makeText(context, "음성이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(context, "삭제 실패", Toast.LENGTH_SHORT).show()
             }
@@ -222,9 +242,20 @@ fun VoiceListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("음성 리스트", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp), // 여기서 vertical 패딩을 줄임 (16.dp에서 8.dp로)
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "음성 리스트",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            }
+
         }
     ) { innerPadding ->
         Box(
@@ -233,6 +264,11 @@ fun VoiceListScreen(
                 .padding(innerPadding)
                 .background(backgroundColor)
         ) {
+            HorizontalDivider(
+                color = Color(0xFFE0E0E0),
+                thickness = 1.5.dp,
+                modifier = Modifier.fillMaxWidth()
+            )
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -325,7 +361,7 @@ fun VoiceListScreen(
                                         voice = voice,
                                         isPlaying = currentPlayingVoiceId == voice.voice_id,
                                         onClick = { }, // 더 이상 사용하지 않음
-                                        onDelete = { deleteVoice(voice.voice_id) },
+                                        onDelete = { deleteVoice(voice) },
                                         onPlayClick = { toggleVoice(voice) },
                                         onShowFeaturesClick = { loadVoiceFeatures(voice) }
                                     )
@@ -376,7 +412,7 @@ fun VoiceListScreen(
                                         voice = voice,
                                         isPlaying = currentPlayingVoiceId == voice.voice_id,
                                         onClick = { }, // 더 이상 사용하지 않음
-                                        onDelete = { deleteVoice(voice.voice_id) },
+                                        onDelete = { deleteVoice(voice) },
                                         onPlayClick = { toggleVoice(voice) },
                                         onShowFeaturesClick = { loadVoiceFeatures(voice) },
                                         isClonedVoice = true
@@ -437,6 +473,44 @@ fun VoiceListScreen(
                 ) {
                     CircularProgressIndicator(color = Color.White)
                 }
+            }
+            // 삭제 확인 다이얼로그
+            if (showDeleteDialog && voiceToDelete != null) {
+                AlertDialog(
+                    onDismissRequest = {
+                        showDeleteDialog = false
+                        voiceToDelete = null
+                    },
+                    title = { Text("음성 삭제") },
+                    text = {
+                        Text(
+                            "\"${voiceToDelete?.title ?: ""}\" 음성을 삭제하시겠습니까?\n삭제한 음성은 복구할 수 없습니다."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                voiceToDelete?.let { voice ->
+                                    performDelete(voice.voice_id)
+                                }
+                                showDeleteDialog = false
+                                voiceToDelete = null
+                            }
+                        ) {
+                            Text("삭제", color = Color.Red)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                showDeleteDialog = false
+                                voiceToDelete = null
+                            }
+                        ) {
+                            Text("취소")
+                        }
+                    }
+                )
             }
         }
     }
@@ -760,7 +834,7 @@ fun VoiceItemCard(
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_notice), // 정보 아이콘 필요
+                    painter = painterResource(id = R.drawable.ic_info), // 정보 아이콘 필요
                     contentDescription = "Voice Features",
                     tint = Color(0xFF9C8A54),
                     modifier = Modifier.size(20.dp)

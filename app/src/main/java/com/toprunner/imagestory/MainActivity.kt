@@ -29,6 +29,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -149,6 +150,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             ImageStoryTheme {
                 val navController = rememberNavController()
+                val generatedStoryViewModel: GeneratedStoryViewModel = viewModel()
+
 
                 Scaffold(
                     bottomBar = {
@@ -228,14 +231,52 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 음악 리스트 화면
-                        composable(NavRoute.MusicList.route) {
-                            MusicListScreen(
-                                navController = navController
-                            )
-                        }
+                            composable(
+                                route = "generated_story_screen/{storyId}",                  // 🔥 경로 정의
+                                arguments = listOf(navArgument("storyId") {
+                                    type = NavType.LongType
+                                })
+                            ) { backStackEntry ->
+                                val storyId = backStackEntry.arguments?.getLong("storyId") ?: 0L
+                                GeneratedStoryScreen(
+                                    storyId = storyId,
+                                    navController = navController,
+                                    generatedStoryViewModel = generatedStoryViewModel        // 🔥 ViewModel 공유
+                                )
+                            }
+                            // 음악 리스트 화면
+//                        composable(NavRoute.MusicList.route) {
+//                            MusicListScreen(
+//                                navController = navController,
+//                                viewModel = generatedStoryViewModel,                     // 🔥 ViewModel 주입
+//                                onNavigateToStory = { storyId ->                          // 🔥 이동 콜백
+//                                    navController.navigate(NavRoute.GeneratedStory.createRoute(storyId))
+//                                }
+//                            )
+//                        }
 
-                        // 설정 화면
+                            composable(NavRoute.MusicManager.route) {
+                                MusicManagerScreen() // ✅ 음악 관리 화면
+                            }
+                            composable(
+                                route = "music_list/{storyId}",
+                                arguments = listOf(navArgument("storyId") { type = NavType.LongType })
+                            ) { backStackEntry ->
+                                val storyId = backStackEntry.arguments?.getLong("storyId") ?: 0L
+
+                                MusicListScreen(
+                                    navController = navController,
+                                    viewModel = generatedStoryViewModel,
+                                    storyId = storyId,  // 🔥 전달
+                                    onNavigateToStory = { id ->
+                                        navController.navigate(NavRoute.GeneratedStory.createRoute(id))
+                                    }
+                                )
+                            }
+
+
+
+                            // 설정 화면
                         composable(NavRoute.Settings.route) {
                             SettingsScreen(
                                 navController = navController,
@@ -272,18 +313,28 @@ class MainActivity : ComponentActivity() {
 
 
                         // 생성된 동화 화면
-                        composable(
-                            route = NavRoute.GeneratedStory.route,
-                            arguments = listOf(navArgument("storyId") { type = NavType.LongType })
-                        ) { backStackEntry ->
-                            val storyId = backStackEntry.arguments?.getLong("storyId") ?: -1
-                            if (storyId != -1L) {
-                                GeneratedStoryScreen(
-                                    storyId = storyId,
-                                    navController = navController
+                            composable(
+                                route = NavRoute.GeneratedStory.route,
+                                arguments = listOf(
+                                    navArgument("storyId") { type = NavType.LongType },
+                                    navArgument("bgmPath") {
+                                        type = NavType.StringType
+                                        nullable = true
+                                        defaultValue = null
+                                    }
                                 )
+                            ) { backStackEntry ->
+                                val storyId = backStackEntry.arguments?.getLong("storyId") ?: -1
+                                val bgmPath = backStackEntry.arguments?.getString("bgmPath")
+                                if (storyId != -1L) {
+                                    GeneratedStoryScreen(
+                                        storyId = storyId,
+                                        bgmPath = bgmPath,
+                                        navController = navController,
+                                        generatedStoryViewModel = generatedStoryViewModel
+                                    )
+                                }
                             }
-                        }
 
                         // 목소리 녹음 화면
                         composable(NavRoute.VoiceRecording.route) {
