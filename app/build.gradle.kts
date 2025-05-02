@@ -27,19 +27,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val gptKey        = localProperties.getProperty("gpt_api_key")        ?: ""
-        val elevenLabsKey = localProperties.getProperty("elevenlabs_api_key") ?: ""
-
-        buildConfigField(
-            "String",
-            "GPT_API_KEY",
-            "\"$gptKey\""
-        )
-        buildConfigField(
-            "String",
-            "ELEVENLABS_API_KEY",
-            "\"$elevenLabsKey\""
-        )
+        buildConfigField("String", "ELEVENLABS_API_KEY", "\"${localProperties.getProperty("elevenlabs_api_key")}\"")
+        buildConfigField("String", "GPT_API_KEY", "\"${localProperties.getProperty("gpt_api_key")}\"")
     }
 
     buildTypes {
@@ -143,4 +132,7 @@ dependencies {
     implementation ("androidx.room:room-runtime:2.7.0")
     kapt ("androidx.room:room-compiler:2.7.0")
     implementation ("androidx.room:room-ktx:2.7.0")
+
+    implementation ("androidx.exifinterface:exifinterface:1.3.7")
+
 }

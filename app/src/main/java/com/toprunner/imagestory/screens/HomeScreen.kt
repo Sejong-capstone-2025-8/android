@@ -152,7 +152,7 @@ fun HomeScreen(
                                 text = "카메라",
                                 color = Color.Black,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontSize = 12.sp
                             )
                         }
                     }
@@ -183,7 +183,7 @@ fun HomeScreen(
                                 text = "갤러리",
                                 color = Color.Black,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontSize = 12.sp
                             )
                         }
                     }

@@ -106,6 +106,7 @@ class GPTService {
         1. 결과는 반드시 JSON 형식의 객체여야 합니다.
         2. JSON 객체는 다음 키들을 포함해야 합니다: "title" (문자열), "theme" (문자열, (fantasy,love,sf,horror,comedy 중 하나)), "text" (문자열), "averagePitch" (실수), "pitchStdDev" (실수), "mfccValues" (숫자 배열들의 배열, 각 내부 배열은 13개의 숫자를 포함).
         3. 추가적인 설명이나 부가 텍스트 없이 오직 JSON 객체만 출력해야 합니다.
+        4. 분당 토큰 수 제한인 30000 토큰을 넘지 않도록 작성해주세요.
 
         이미지 데이터: data:image/jpeg;base64,$base64Image
     """.trimIndent()
@@ -133,7 +134,7 @@ class GPTService {
         val requestObj = JSONObject().apply {
             put("model", "gpt-4o")
             put("messages", messages)
-            put("max_tokens", 5000)
+            put("max_tokens", 1000)
         }
 
         return requestObj.toString()

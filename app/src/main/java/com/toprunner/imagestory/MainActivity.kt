@@ -7,7 +7,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -84,7 +87,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 카메라 및 갤러리 런처들
     private val takePictureLauncher = registerForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
@@ -105,20 +107,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
             capturedImageUri = it
             try {
-                capturedImageBitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val source = ImageDecoder.createSource(contentResolver, it)
+                    ImageDecoder.decodeBitmap(source)
+                } else {
+                    MediaStore.Images.Media.getBitmap(contentResolver, it)
+                }
+
+                capturedImageBitmap = bitmap
+
             } catch (e: Exception) {
                 Toast.makeText(this, "이미지 처리 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+                Log.e("MainActivity", "갤러리 이미지 처리 오류: ${e.message}", e)
             }
         }
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

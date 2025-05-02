@@ -226,5 +226,4 @@ class GeneratedStoryViewModel : ViewModel() {
     }
 
 
-
 }

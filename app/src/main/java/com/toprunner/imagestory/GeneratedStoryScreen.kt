@@ -18,6 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -118,7 +120,7 @@ fun GeneratedStoryScreen(
                         .fillMaxWidth()
                         .height(200.dp)
                         .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Fit
                 )
             } else {
                 Box(
@@ -172,7 +174,7 @@ fun GeneratedStoryScreen(
             onValueChange = onSliderValueChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 8.dp)
                 .height(20.dp),
             colors = SliderDefaults.colors(
                 thumbColor = Color(0xFFE9D364),
@@ -212,7 +214,7 @@ fun GeneratedStoryScreen(
             // 재생/일시정지 버튼: 뷰모델의 toggleAudioPlayback() 호출
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFE9D364))
                     .clickable { generatedStoryViewModel.toggleAudioPlayback() },
@@ -231,7 +233,7 @@ fun GeneratedStoryScreen(
             // 정지 버튼
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFE9D364))
                     .clickable { generatedStoryViewModel.stopAudio() },
@@ -246,83 +248,67 @@ fun GeneratedStoryScreen(
             }
         }
 
-        // 목소리 설정 섹션 (버튼 등)
-        Column(
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
+            Button(
+                onClick = { navController.navigate(NavRoute.VoiceList.route) },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { navController.navigate(NavRoute.VoiceList.route) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .weight(1f)
+                    .height(36.dp)
+                    .padding(end = 2.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566))
             ) {
                 Text(
                     text = "목소리 선택",
-                    fontSize = 16.sp,
+                    fontSize = 12.sp,
                     color = Color.Black
                 )
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_forward),
-                    contentDescription = "More",
-                    tint = Color.Gray
-                )
             }
-            HorizontalDivider(
-                color = Color(0xFFE0E0E0),
-                thickness = 1.dp,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(
+
+            Button(
+                onClick = { navController.navigate(NavRoute.MusicList.route) },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { navController.navigate(NavRoute.MusicList.route) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .weight(1f)
+                    .height(36.dp)
+                    .padding(horizontal = 2.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566))
             ) {
                 Text(
                     text = "배경음 설정",
-                    fontSize = 16.sp,
+                    fontSize = 12.sp,
                     color = Color.Black
                 )
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_forward),
-                    contentDescription = "More",
-                    tint = Color.Gray
-                )
             }
-            HorizontalDivider(
-                color = Color(0xFFE0E0E0),
-                thickness = 1.dp,
-                modifier = Modifier.fillMaxWidth()
-            )
+
             Button(
                 onClick = { recommendVoice() },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .height(36.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF5F5F5)
-                ),
+                    .weight(1f)
+                    .height(36.dp)
+                    .padding(start = 2.dp),
+                enabled = !storyState.isLoading,
                 shape = RoundedCornerShape(8.dp),
-                enabled = !storyState.isLoading
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566))
             ) {
                 Text(
                     text = "목소리 추천",
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 16.sp,
+                    fontSize = 12.sp,
                     color = Color.Black
                 )
             }
-            HorizontalDivider(
-                color = Color(0xFFE0E0E0),
-                thickness = 1.dp,
-                modifier = Modifier.fillMaxWidth()
-            )
-            // 동화 텍스트 영역
+        }
+
+
+        val sentencePositions = remember { mutableStateMapOf<Int, Int>() }
+
+        // 동화 텍스트 영역
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -331,17 +317,52 @@ fun GeneratedStoryScreen(
                     .verticalScroll(scrollState)
             ) {
                 if (storyState.storyContent.isNotEmpty()) {
-                    val storyLines = storyState.storyContent.split("\n")
-                    storyLines.forEach { line ->
-                        if (line.isNotEmpty()) {
-                            Text(
-                                text = line,
-                                fontSize = 16.sp,
-                                color = Color.Black,
-                                modifier = Modifier.padding(top = 4.dp),
-                                lineHeight = 24.sp
-                            )
+                    val sentenceRegex = Regex("(?<=[.!?])\\s+")
+
+                    val storyLines = remember(storyState.storyContent) {
+                        storyState.storyContent.split(sentenceRegex).filter { it.isNotBlank() }
+                    }
+
+                    // 전체 텍스트 길이
+                    val totalLength = remember(storyLines) {
+                        storyLines.sumOf { it.length }
+                    }
+
+                    // 누적 비율 리스트 생성
+                    val cumulativeRatios = remember(storyLines) {
+                        val list = mutableListOf<Float>()
+                        var cumulative = 0f
+                        for (line in storyLines) {
+                            cumulative += line.length
+                            list.add(cumulative / totalLength)
                         }
+                        list
+                    }
+
+                    // 현재 문장 인덱스 계산
+                    val currentSentenceIndex = cumulativeRatios.indexOfFirst { it >= playbackProgress }
+
+                    // 오토 스크롤 트리거
+                    LaunchedEffect(currentSentenceIndex) {
+                        sentencePositions[currentSentenceIndex]?.let { y ->
+                            scrollState.animateScrollTo(y)
+                        }
+                    }
+
+                    storyLines.forEachIndexed { index, line ->
+                        val isCurrent = index == currentSentenceIndex
+                        Text(
+                            text = line,
+                            fontSize = 16.sp,
+                            color = if (isCurrent) Color(0xFFFFC107) else Color.Black,
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .onGloballyPositioned { coordinates ->
+                                    sentencePositions[index] = coordinates.positionInParent().y.toInt()
+                                },
+                            lineHeight = 24.sp
+                        )
                     }
                 } else if (storyState.isLoading) {
                     Box(
@@ -366,7 +387,7 @@ fun GeneratedStoryScreen(
                 Spacer(modifier = Modifier.height(80.dp))
             }
         }
-    }
+
 
     if (storyState.isLoading) {
         Box(
