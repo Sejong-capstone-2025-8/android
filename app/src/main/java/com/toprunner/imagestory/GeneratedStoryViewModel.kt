@@ -11,7 +11,6 @@ import com.toprunner.imagestory.repository.FairyTaleRepository
 import com.toprunner.imagestory.repository.ImageRepository
 import com.toprunner.imagestory.repository.TextRepository
 import com.toprunner.imagestory.service.TTSService
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,10 +49,7 @@ class GeneratedStoryViewModel : ViewModel() {
             try {
                 _storyState.value = StoryState(isLoading = true)
 
-                // TTSService 초기화
-                if (ttsService == null) {
-                    ttsService = TTSService(context)
-                }
+                ttsService = TTSService(context)
 
                 val fairyTaleRepository = FairyTaleRepository(context)
                 val imageRepository = ImageRepository(context)
@@ -83,14 +79,9 @@ class GeneratedStoryViewModel : ViewModel() {
 
                 val audioPath = attributeJson.optString("audioPath", "")
                 _storyState.value = _storyState.value.copy(audioPath = audioPath)
+
                 if (audioPath.isNotEmpty()) {
-                    try {
-                        val durationMs = ttsService?.calculateAudioDuration(audioPath) ?: 0
-                        _totalDuration.value = durationMs // 초 단위를 밀리초로 변환
-                    } catch (e: Exception) {
-                        Log.e("GeneratedStoryViewModel", "Error calculating audio duration: ${e.message}")
-                        _totalDuration.value = 0
-                    }
+                    _totalDuration.value = ttsService?.calculateAudioDuration(audioPath) ?: 0
                 }
 
                 _storyState.value = _storyState.value.copy(isLoading = false)
@@ -170,31 +161,22 @@ class GeneratedStoryViewModel : ViewModel() {
     }
 
 
-    // startProgressTracking 메서드 개선
     private fun startProgressTracking() {
         viewModelScope.launch {
             while (_isPlaying.value) {
-                try {
-                    val currentPos = ttsService?.getCurrentPosition() ?: 0
-                    val total = ttsService?.getTotalDuration() ?: 1
+                val currentPos = ttsService?.getCurrentPosition() ?: 0
+                val total = ttsService?.getTotalDuration() ?: 1
+                _playbackProgress.value = if (total > 0) currentPos.toFloat() / total else 0f
 
-                    // 이전 값과 큰 차이가 있을 때만 업데이트 (스무딩 효과)
-                    val newProgress = if (total > 0) currentPos.toFloat() / total else 0f
-                    if (kotlin.math.abs(newProgress - _playbackProgress.value) > 0.01f) {
-                        _playbackProgress.value = newProgress
-                    }
+                // 전체 재생 시간도 업데이트 (재생 시작 후 더 정확한 값을 얻을 수 있음)
+                _totalDuration.value = total
 
-                    // 재생 종료 감지 개선
-                    if (newProgress >= 0.99f || ttsService?.isPlaying() == false) {
-                        _isPlaying.value = false
-                        _playbackProgress.value = 0f
-                        break
-                    }
-                } catch (e: Exception) {
-                    Log.e("GeneratedStoryViewModel", "Error tracking progress: ${e.message}")
+                if (_playbackProgress.value >= 1f) {
+                    _isPlaying.value = false
+                    _playbackProgress.value = 0f
+                    break
                 }
-
-                delay(50) // 더 빠른 업데이트 주기
+                kotlinx.coroutines.delay(100) // 100ms마다 업데이트
             }
         }
     }
@@ -243,17 +225,5 @@ class GeneratedStoryViewModel : ViewModel() {
         }
     }
 
-    fun updatePlaybackProgress(progress: Float) {
-        _playbackProgress.value = progress
-    }
 
-
-    fun stopPlayback() {
-        _isPlaying.value = false
-        _playbackProgress.value = 0f
-        stopAudio() // 기존에 있는 오디오 중지 메서드 호출
-    }
-    fun getCurrentPlaybackProgress(): Float {
-        return ttsService?.getPlaybackProgress() ?: 0f
-    }
 }

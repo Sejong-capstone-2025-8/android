@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -118,9 +119,18 @@ class MainActivity : ComponentActivity() {
         uri?.let {
             capturedImageUri = it
             try {
-                capturedImageBitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val source = ImageDecoder.createSource(contentResolver, it)
+                    ImageDecoder.decodeBitmap(source)
+                } else {
+                    MediaStore.Images.Media.getBitmap(contentResolver, it)
+                }
+
+                capturedImageBitmap = bitmap
+
             } catch (e: Exception) {
-                Toast.makeText(this, "이미지 가져올 때 오류 발생.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "이미지 처리 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+                Log.e("MainActivity", "갤러리 이미지 처리 오류: ${e.message}", e)
             }
         }
     }
@@ -158,7 +168,7 @@ class MainActivity : ComponentActivity() {
                     ){
                         NavHost(
                         navController = navController,
-                        startDestination = NavRoute.Login.route,
+                        startDestination = NavRoute.Home.route,
                         modifier = Modifier.fillMaxSize()
 
                     ) {
