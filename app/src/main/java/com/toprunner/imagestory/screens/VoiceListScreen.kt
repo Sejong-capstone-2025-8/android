@@ -2,6 +2,11 @@ package com.toprunner.imagestory.screens
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -464,14 +470,63 @@ fun VoiceListScreen(
             }
 
             // 특징 로딩 표시기
+            // 음성 특징 로딩 표시기
             if (isLoadingFeatures) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Color.White)
+                Dialog(onDismissRequest = {}) { // 로딩 중에는 닫기 비활성화
+                    Card(
+                        modifier = Modifier
+                            .width(300.dp)
+                            .wrapContentHeight()
+                            .clip(RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 8.dp
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // 파형 애니메이션
+                            SoundWaveAnimation(
+                                modifier = Modifier
+                                    .height(80.dp)
+                                    .fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "음성 특징 분석 중",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4285F4)
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = "목소리의 고유한 특성을 분석하고 있습니다",
+                                fontSize = 14.sp,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = Color(0xFF4285F4),
+                                trackColor = Color(0xFFE0E0E0)
+                            )
+                        }
+                    }
                 }
             }
             // 삭제 확인 다이얼로그
@@ -701,7 +756,7 @@ fun VoiceListScreen(
 
                         IconButton(onClick = { showFeaturesDialog = false }) {
                             Icon(
-                                painter = painterResource(id = R.drawable.ic_stop),
+                                painter = painterResource(id = R.drawable.ic_close),
                                 contentDescription = "Close",
                                 tint = Color.Gray
                             )
@@ -744,6 +799,66 @@ fun VoiceListScreen(
     }
 }
 
+// 파형 애니메이션 컴포넌트
+@Composable
+fun SoundWaveAnimation(
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "sound wave")
+    val waveBarCount = 5
+
+    // 각 파형 바의 높이 애니메이션
+    val waveHeights = List(waveBarCount) { index ->
+        val delay = index * 100 // 각 바마다 약간의 딜레이
+        infiniteTransition.animateFloat(
+            initialValue = 0.3f,
+            targetValue = 0.3f,
+            animationSpec = infiniteRepeatable(
+                animation = keyframes {
+                    durationMillis = 1200
+                    0.3f at 0
+                    0.9f at 200
+                    0.3f at 400
+                    0.7f at 600
+                    0.3f at 800
+                    0.5f at 1000
+                    0.3f at 1200
+                },
+                initialStartOffset = StartOffset(delay)
+            ),
+            label = "wave$index"
+        )
+    }
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier.fillMaxHeight(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            waveHeights.forEachIndexed { index, heightFactor ->
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .width(8.dp)
+                        .fillMaxHeight(heightFactor.value)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF4285F4), // 파랑
+                                    Color(0xFFEA4335)  // 빨강
+                                )
+                            )
+                        )
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun VoiceItemCard(
