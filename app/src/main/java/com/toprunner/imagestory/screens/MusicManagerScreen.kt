@@ -184,7 +184,7 @@ fun MusicManagerScreen() {
                 .padding(16.dp)
         ) {
             Text(
-                text = "음악 관리",
+                text = "음악 리스트",
                 modifier = Modifier.align(Alignment.Center),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,

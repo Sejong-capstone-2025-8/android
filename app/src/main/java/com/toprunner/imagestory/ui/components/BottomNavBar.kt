@@ -28,7 +28,7 @@ fun BottomNavBar(navController: NavController) {
         Triple(NavRoute.Home.route, R.drawable.ic_home, "홈화면"),
         Triple(NavRoute.FairyTaleList.route, R.drawable.ic_bookmark, "동화 리스트"),
         Triple(NavRoute.VoiceList.route, R.drawable.ic_mic, "음성 리스트"),
-        Triple(NavRoute.MusicManager.route, R.drawable.ic_music, "음악 관리"),
+        Triple(NavRoute.MusicManager.route, R.drawable.ic_music, "음악 리스트"),
         Triple(NavRoute.Settings.route, R.drawable.ic_settings, "설정")
     )
 
