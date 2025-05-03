@@ -55,7 +55,6 @@ fun MusicManagerScreen() {
     var genreExpanded by remember { mutableStateOf(false) }
     val genres = listOf("판타지", "사랑", "SF", "공포", "코미디")
 
-    // Initial load from DB
     LaunchedEffect(Unit) {
         isLoading = true
         withContext(Dispatchers.IO) {
@@ -64,7 +63,6 @@ fun MusicManagerScreen() {
         isLoading = false
     }
 
-    // File picker
     val pickAudioLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -77,7 +75,6 @@ fun MusicManagerScreen() {
         }
     }
 
-    // AlertDialog for title & genre input
     if (showDialog && pendingUri != null) {
         AlertDialog(
             onDismissRequest = { showDialog = false; pendingUri = null },
@@ -205,29 +202,34 @@ fun MusicManagerScreen() {
             }
         }
 
-        // Add Music Button
-        Button(
+        // 음악 추가하기 버튼
+        NeuomorphicButton(
             onClick = { pickAudioLauncher.launch("audio/*") },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .height(48.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD166)),
-            shape = RoundedCornerShape(12.dp)
+            backgroundColor = Color(0xFFFFD166),
+            cornerRadius = 12.dp
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_music),
-                contentDescription = "Add Music",
-                modifier = Modifier.size(20.dp),
-                tint = Color.Black
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "음악 추가하기",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = Color.Black
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_music),
+                    contentDescription = "Add Music",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Black
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "음악 추가하기",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.Black
+                )
+            }
         }
 
         Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
@@ -311,7 +313,6 @@ fun MusicManagerScreen() {
         }
     }
 
-    // Clean up on leaving screen
     DisposableEffect(Unit) {
         onDispose {
             mediaPlayer?.release()

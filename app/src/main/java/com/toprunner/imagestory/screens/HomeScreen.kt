@@ -1,6 +1,7 @@
 package com.toprunner.imagestory.screens
 
 import android.graphics.Bitmap
+import android.graphics.fonts.FontStyle
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.toprunner.imagestory.R
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.text.font.Font
 
 
 @Composable
@@ -335,7 +337,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.weight(1f))
         }
 
-        // 로딩 표시 부분 수정
+        // 동화 생성 로딩 다이얼로그
         if (isLoading) {
             Box(
                 modifier = Modifier
@@ -349,34 +351,7 @@ fun HomeScreen(
                     elevation = 16.dp,
                     cornerRadius = 20.dp
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        CircularProgressIndicator(
-                            color = Color(0xFFE9D364),
-                            modifier = Modifier.size(60.dp),
-                            strokeWidth = 6.dp
-                        )
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = "동화를 생성 중입니다",
-                            color = Color(0xFF3F2E20),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            textAlign = TextAlign.Center, // 텍스트 중앙 정렬 추가
-                            modifier = Modifier.fillMaxWidth() // 너비를 채우도록 설정
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "잠시만 기다려주세요...",
-                            color = Color.Gray,
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.Center, // 텍스트 중앙 정렬 추가
-                            modifier = Modifier.fillMaxWidth() // 너비를 채우도록 설정
-                        )
-                    }
+                    LoadingAnimationDialog()
                 }
             }
         }
@@ -606,6 +581,288 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun LoadingAnimationDialog() {
+    // 배경 카드 스케일 애니메이션
+    val cardScale = remember { Animatable(0.8f) }
+    LaunchedEffect(Unit) {
+        cardScale.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessLow
+            )
+        )
+    }
+
+    // 무한 회전 애니메이션
+    val infiniteTransition = rememberInfiniteTransition(label = "loading rotation")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 2000,
+                easing = LinearEasing
+            )
+        ),
+        label = "rotation"
+    )
+
+    // 책 페이지 넘김 애니메이션
+    val pageAnimation = rememberInfiniteTransition(label = "page flip")
+    val pageAlpha by pageAnimation.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 3000
+                0f at 0
+                0.3f at 300
+                0.7f at 600
+                1f at 900
+                1f at 2000
+                0f at 2100
+                0f at 3000
+            }
+        ),
+        label = "page_alpha"
+    )
+
+    // 밝기 파동 애니메이션
+    val glowAnimation = rememberInfiniteTransition(label = "glow")
+    val glowAlpha by glowAnimation.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow_alpha"
+    )
+
+    // 진행 텍스트 애니메이션
+    val progressTextAnimation = rememberInfiniteTransition(label = "progress text")
+    val dotsProgress by progressTextAnimation.animateFloat(
+        initialValue = 0f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = LinearEasing)
+        ),
+        label = "dots"
+    )
+
+    val progressText = remember(dotsProgress) {
+        "동화 생성 중" + ".".repeat(dotsProgress.toInt() + 1)
+    }
+
+    NeuomorphicBox(
+        modifier = Modifier
+            .width(280.dp)
+            .graphicsLayer {
+                scaleX = cardScale.value
+                scaleY = cardScale.value
+            },
+        backgroundColor = Color.White.copy(alpha = 0.96f),
+        elevation = 24.dp,
+        cornerRadius = 24.dp
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            // 회전하는 책 아이콘과 발광 효과
+            Box(
+                modifier = Modifier.size(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // 발광 효과
+                Canvas(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .alpha(glowAlpha)
+                ) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFFFFD166).copy(alpha = 0.7f),
+                                Color(0xFFFFD166).copy(alpha = 0f)
+                            )
+                        ),
+                        radius = size.width / 2,
+                        center = Offset(size.width / 2, size.height / 2)
+                    )
+                }
+
+                // 회전하는 책/동화 아이콘
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .graphicsLayer {
+                            rotationY = rotation
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    // 책 표지
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFFFFD166),
+                                        Color(0xFFE9B44C)
+                                    )
+                                )
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.8f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                    )
+
+                    // 책 페이지 넘기는 효과
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .graphicsLayer {
+                                alpha = pageAlpha
+                                rotationY = 180f * pageAlpha
+                            }
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.White)
+                    )
+
+                    // 책 제목 위치 (작은 텍스트 블록 표현)
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp, 6.dp)
+                            .offset(y = (-15).dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White.copy(alpha = 0.7f))
+                    )
+
+                    // 책 페이지 텍스트 묘사 (작은 선들로 표현)
+                    Column(
+                        modifier = Modifier
+                            .width(32.dp)
+                            .height(24.dp)
+                            .offset(y = 8.dp)
+                            .alpha(if (rotation % 360 < 180) 1f else 0f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        repeat(4) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(1.dp))
+                                    .background(Color.White.copy(alpha = 0.7f))
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 진행 상태 텍스트
+            Text(
+                text = progressText,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF3F2E20),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 세련된 진행 바
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color(0xFFEEEEEE))
+            ) {
+                // 무한 진행 애니메이션
+                val progressAnimation = rememberInfiniteTransition(label = "progress")
+                val progressWidth by progressAnimation.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1500, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "progress_width"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progressWidth)
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFFFFD166),
+                                    Color(0xFFE9B44C),
+                                    Color(0xFFFFD166)
+                                )
+                            )
+                        )
+                )
+
+                // 반짝이는 하이라이트 효과
+                Box(
+                    modifier = Modifier
+                        .width(20.dp)
+                        .fillMaxHeight()
+                        .offset(x = progressWidth.times(300).dp - 20.dp)
+                        .alpha(0.6f)
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.White,
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 설명 텍스트
+            Text(
+                text = "AI가 창의적인 동화를 만들고 있어요",
+                color = Color.Gray,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 창작 과정 작은 텍스트
+            val steps = listOf("이미지 분석", "스토리 구성", "캐릭터 만들기", "이야기 완성")
+            val currentStep = remember(dotsProgress) {
+                steps[((dotsProgress * 5) % steps.size).toInt()]
+            }
+
+            Text(
+                text = currentStep,
+                color = Color(0xFFE9B44C),
+                fontSize = 12.sp,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -851,16 +1108,28 @@ fun NeuomorphicButton(
     // 버튼이 눌렸는지 상태 확인
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // 눌렸을 때 크기와 그림자 변화
+    // 눌렸을 때 크기 변화
     val scale = if (isPressed) 0.97f else 1f
+
+    // 버튼 눌림 애니메이션 - 부드러운 스프링 애니메이션 적용
+    val animatedScale by animateFloatAsState(
+        targetValue = scale,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "buttonScale"
+    )
+
+    // 눌렸을 때 그림자 변화 (더 작은 그림자)
     val buttonElevation = if (isPressed) elevation / 2 else elevation
 
     NeuomorphicBox(
         modifier = modifier
             .alpha(buttonAlpha)
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
+                scaleX = animatedScale
+                scaleY = animatedScale
             }
             .clickable(
                 interactionSource = interactionSource,

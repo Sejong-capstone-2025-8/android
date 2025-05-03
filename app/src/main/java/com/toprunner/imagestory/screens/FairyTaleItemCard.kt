@@ -1,7 +1,12 @@
 package com.toprunner.imagestory.screens
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,10 +23,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,18 +60,44 @@ fun FairyTaleItemCard(
         false
     }
 
-    Card(
+    // 인터랙션 상태를 추적하기 위한 소스 생성
+    val interactionSource = remember { MutableInteractionSource() }
+
+    // 버튼이 눌렸는지 확인
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // 눌렸을 때 크기 변화 - 약간 축소되는 효과
+    val scale = if (isPressed) 0.93f else 1f
+
+    // 애니메이션 처리
+    val animatedScale by animateFloatAsState(
+        targetValue = scale,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale"
+    )
+
+    val backgroundColor = if (isRecommendedVoiceVersion) Color(0xFFFEF9E7) else Color(0xFFFFFBF0)
+
+    // NeuomorphicBox 적용 - 크기 변화 애니메이션 추가
+    NeuomorphicBox(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isRecommendedVoiceVersion) Color(0xFFFEF9E7) else Color.White
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        ),
-        shape = RoundedCornerShape(8.dp)
+            .graphicsLayer {
+                scaleX = animatedScale
+                scaleY = animatedScale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null, // 기본 리플 효과 제거
+                onClick = onClick
+            ),
+        backgroundColor = backgroundColor,
+        elevation = 4.dp,
+        cornerRadius = 12.dp
     ) {
         Row(
             modifier = Modifier
@@ -74,7 +109,7 @@ fun FairyTaleItemCard(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFFFFEED0)),
                 contentAlignment = Alignment.Center
             ) {
@@ -143,3 +178,4 @@ fun FairyTaleItemCard(
         }
     }
 }
+
