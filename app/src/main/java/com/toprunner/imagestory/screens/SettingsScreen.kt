@@ -38,32 +38,30 @@ fun SettingsScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(horizontal = 8.dp, vertical = 12.dp)
         ) {
-            Text(
-                text = "설정",
-                modifier = Modifier.align(Alignment.Center),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
+            // 네오모픽 스타일 헤더
+            NeuomorphicBox(
+                modifier = Modifier.fillMaxWidth(),
+                backgroundColor = Color(0xFFFFFBF0),
+                elevation = 4.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "홈",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF3F2E20)
+                    )
+                }
 
-            Icon(
-                painter = painterResource(id = R.drawable.ic_email),
-                contentDescription = "이메일",
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .size(24.dp)
-                    .clickable { /* Open email app */ },
-                tint = Color(0xFF9C8A54)
-            )
+            }
         }
-
-        HorizontalDivider(
-            color = Color(0xFFE0E0E0),
-            thickness = 1.5.dp,
-            modifier = Modifier.fillMaxWidth()
-        )
 
         // Settings items
         SettingsItemCard(

@@ -4,10 +4,12 @@ import android.graphics.Bitmap
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -85,7 +87,7 @@ fun HomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 22.dp)
+                    .padding(horizontal = 8.dp, vertical = 12.dp)
             ) {
                 // 네오모픽 스타일 헤더
                 NeuomorphicBox(
@@ -96,7 +98,7 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -831,6 +833,7 @@ fun NeuomorphicBox(
     }
 }
 
+
 @Composable
 fun NeuomorphicButton(
     onClick: () -> Unit,
@@ -839,17 +842,35 @@ fun NeuomorphicButton(
     contentColor: Color = Color(0xFF3F2E20),
     elevation: Dp = 6.dp,
     enabled: Boolean = true,
+    cornerRadius: Dp = 16.dp,
     content: @Composable () -> Unit
 ) {
     val buttonAlpha = if (enabled) 1f else 0.6f
+    val interactionSource = remember { MutableInteractionSource() }
+
+    // 버튼이 눌렸는지 상태 확인
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // 눌렸을 때 크기와 그림자 변화
+    val scale = if (isPressed) 0.97f else 1f
+    val buttonElevation = if (isPressed) elevation / 2 else elevation
 
     NeuomorphicBox(
         modifier = modifier
             .alpha(buttonAlpha)
-            .clickable(enabled = enabled) { onClick() },
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null, // 리플 효과 제거
+                enabled = enabled,
+                onClick = onClick
+            ),
         backgroundColor = backgroundColor,
-        elevation = if (enabled) elevation else 0.dp,
-        cornerRadius = 16.dp
+        elevation = if (enabled) buttonElevation else 0.dp,
+        cornerRadius = cornerRadius
     ) {
         Box(
             modifier = Modifier
@@ -857,8 +878,7 @@ fun NeuomorphicButton(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            CompositionLocalProvider(LocalContentColor provides contentColor
-            ) {
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
                 content()
             }
         }

@@ -181,18 +181,29 @@ fun MusicManagerScreen() {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 8.dp, vertical = 12.dp)
         ) {
-            Text(
-                text = "음악 리스트",
-                modifier = Modifier.align(Alignment.Center),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
+            // 네오모픽 스타일 헤더
+            NeuomorphicBox(
+                modifier = Modifier.fillMaxWidth(),
+                backgroundColor = Color(0xFFFFFBF0),
+                elevation = 4.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "음악 리스트",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF3F2E20)
+                    )
+                }
+            }
         }
-
-        HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.5.dp)
 
         // Add Music Button
         Button(
