@@ -52,13 +52,20 @@ fun FairyTaleItemCard(
     val dateFormat = SimpleDateFormat("yyyy.MM.dd", Locale.getDefault())
     val formattedDate = dateFormat.format(Date(fairyTale.created_at))
 
-    // 추천된 음성 버전인지 확인
-    val isRecommendedVoiceVersion = try {
-        val attributeJson = JSONObject(fairyTale.attribute)
-        attributeJson.optBoolean("isRecommendedVoiceVersion", false)
+    val attributes = try {
+        JSONObject(fairyTale.attribute)
     } catch (e: Exception) {
-        false
+        JSONObject()
     }
+
+    // 추천된 음성 버전인지 확인
+    val isRecommendedVoiceVersion = attributes.optBoolean("isRecommendedVoiceVersion", false)
+    val isSelectedVoiceVersion = attributes.optBoolean("isSelectedVoiceVersion", false)
+    val creationMethod = attributes.optString("creationMethod", "")
+
+
+
+
 
     // 인터랙션 상태를 추적하기 위한 소스 생성
     val interactionSource = remember { MutableInteractionSource() }
@@ -79,8 +86,12 @@ fun FairyTaleItemCard(
         label = "scale"
     )
 
-    val backgroundColor = if (isRecommendedVoiceVersion) Color(0xFFFEF9E7) else Color(0xFFFFFBF0)
-
+    // 배경색 결정
+    val backgroundColor = when {
+        isRecommendedVoiceVersion -> Color(0xFFFFEFBB) // 추천 음성용 배경색(노란빛)
+        isSelectedVoiceVersion -> Color(0xFFD5BEFF)    // 선택 음성용 배경색(보라빛)
+        else -> Color(0xFFFFFBF0)                      // 기본 배경색
+    }
     // NeuomorphicBox 적용 - 크기 변화 애니메이션 추가
     NeuomorphicBox(
         modifier = Modifier
@@ -134,26 +145,42 @@ fun FairyTaleItemCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // 추천된 음성 버전 뱃지 (조건부 표시)
-                if (isRecommendedVoiceVersion) {
-                    Text(
-                        text = "추천된 음성 버전",
-                        fontSize = 12.sp,
-                        color = Color(0xFFE9B44C),
-                        modifier = Modifier
-                            .padding(vertical = 2.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFFFFEED0))
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
+                // 음성 유형에 따라 다른 뱃지 표시
+                when {
+                    isRecommendedVoiceVersion -> {
+                        Text(
+                            text = "추천된 음성 버전",
+                            fontSize = 12.sp,
+                            color = Color(0xFFE9B44C),
+                            modifier = Modifier
+                                .padding(vertical = 2.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFFFFEED0))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                    isSelectedVoiceVersion -> {
+                        Text(
+                            text = "선택한 음성 버전",  // 선택한 경우 다른 텍스트 표시
+                            fontSize = 12.sp,
+                            color = Color(0xFF8A54AE),  // 보라색 계열
+                            modifier = Modifier
+                                .padding(vertical = 2.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFFF3E5FF))  // 옅은 보라색 배경
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = formattedDate,
                     fontSize = 14.sp,
                     color = Color.Gray
                 )
+
             }
 
             // 삭제 아이콘

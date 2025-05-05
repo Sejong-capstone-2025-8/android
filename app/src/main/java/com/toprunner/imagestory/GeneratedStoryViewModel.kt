@@ -201,7 +201,7 @@ class GeneratedStoryViewModel : ViewModel() {
             val storyContent = _storyState.value.storyContent
 
             // 새 동화 제목 생성
-            val newTitle = "${_storyState.value.storyTitle} (${selectedVoice.title} 버전)"
+            val newTitle = "${_storyState.value.storyTitle} (선택: ${selectedVoice.title})"
 
             // TTS 서비스 초기화 확인
             if (ttsService == null) {
@@ -221,9 +221,10 @@ class GeneratedStoryViewModel : ViewModel() {
 
             // 새 동화 저장
             val fairyTaleRepository = FairyTaleRepository(context)
-            val newStoryId = fairyTaleRepository.createStoryWithRecommendedVoice(
+
+            val newStoryId = fairyTaleRepository.saveSelectedVoiceStory(
                 originalStoryId = originalStoryId,
-                recommendedVoiceId = selectedVoice.voice_id,
+                selectedVoiceId = selectedVoice.voice_id,
                 newTitle = newTitle,
                 audioData = audioData
             )

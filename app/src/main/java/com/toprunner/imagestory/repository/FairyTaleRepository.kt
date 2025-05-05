@@ -108,20 +108,31 @@ class FairyTaleRepository(private val context: Context) {
             val newAudioPath = fileStorageManager.saveAudioFile(
                 context,
                 audioData,
-                "recommended_audio_${System.currentTimeMillis()}.wav"
+                "recommended_voice_audio_${System.currentTimeMillis()}.wav"
             )
             Log.d(TAG, "New audio saved at: $newAudioPath")
 
             // 새로운 attribute JSON 생성 (기존 값 유지하고 audioPath만 변경)
-            val newAttrJson = JSONObject(originalStory.attribute).apply {
-                put("audioPath", newAudioPath)
-                put("isRecommendedVoiceVersion", true)
-                put("originalStoryId", originalStoryId)
 
-                // 중요: 음성 ID 바뀌었음을 명확히 표시
+            val newAttrJson = JSONObject().apply {
+                // 기존 속성 복사
+                for (key in originalAttrJson.keys()) {
+                    if (key != "audioPath" && key != "isRecommendedVoiceVersion" &&
+                        key != "isSelectedVoiceVersion" && key != "voiceIdChanged") {
+                        put(key, originalAttrJson.get(key))
+                    }
+                }
+
+                // 새 속성 설정
+                put("audioPath", newAudioPath)
+                put("isRecommendedVoiceVersion", true)  // 명시적으로 추천 음성 버전임을 표시
+                put("isSelectedVoiceVersion", false)
+                put("originalStoryId", originalStoryId)
                 put("voiceIdChanged", true)
                 put("previousVoiceId", originalStory.voice_id)
                 put("recommendedVoiceId", recommendedVoiceId)
+                // 생성 방법 추가
+                put("creationMethod", "ai_recommended_voice")
             }
 
             // 새 동화 엔티티 생성
@@ -231,6 +242,77 @@ class FairyTaleRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Error updating fairy tale: ${e.message}", e)
             return@withContext false
+        }
+    }
+    suspend fun saveSelectedVoiceStory(
+        originalStoryId: Long,
+        selectedVoiceId: Long,
+        newTitle: String,
+        audioData: ByteArray
+    ): Long = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Creating new story with selected voice ID: $selectedVoiceId")
+
+            // 원본 동화 가져오기
+            val originalStory = fairyTaleDao.getFairyTaleById(originalStoryId)
+                ?: throw IllegalArgumentException("Original story not found with ID: $originalStoryId")
+
+            // 선택한 음성 확인
+            val voiceEntity = AppDatabase.getInstance(context).voiceDao().getVoiceById(selectedVoiceId)
+                ?: throw IllegalArgumentException("Voice not found with ID: $selectedVoiceId")
+
+            Log.d(TAG, "Found original story and selected voice: ${voiceEntity.title}")
+
+            // 새 오디오 경로 저장 - 명확한 이름 지정
+            val newAudioPath = fileStorageManager.saveAudioFile(
+                context,
+                audioData,
+                "selected_voice_audio_${System.currentTimeMillis()}.wav"
+            )
+            Log.d(TAG, "New audio saved at: $newAudioPath")
+
+            // 새로운 attribute JSON 생성 - 이 부분이 중요
+            val originalAttrJson = JSONObject(originalStory.attribute)
+            val newAttrJson = JSONObject().apply {
+                // 기존 속성 복사
+                for (key in originalAttrJson.keys()) {
+                    if (key != "audioPath" && key != "isRecommendedVoiceVersion" &&
+                        key != "isSelectedVoiceVersion" && key != "voiceIdChanged") {
+                        put(key, originalAttrJson.get(key))
+                    }
+                }
+
+                // 새 속성 설정 - 명확하게 선택 음성 버전임을 표시
+                put("audioPath", newAudioPath)
+                put("isRecommendedVoiceVersion", false)
+                put("isSelectedVoiceVersion", true)  // 이 부분이 핵심
+                put("originalStoryId", originalStoryId)
+                put("voiceIdChanged", true)
+                put("previousVoiceId", originalStory.voice_id)
+                put("selectedVoiceId", selectedVoiceId)
+                // 생성 방법 추가
+                put("creationMethod", "user_selected_voice")
+            }
+
+            // 새 동화 엔티티 생성
+            val newStory = FairyTaleEntity(
+                title = newTitle,
+                voice_id = selectedVoiceId,
+                image_id = originalStory.image_id,
+                text_id = originalStory.text_id,
+                music_id = originalStory.music_id,
+                attribute = newAttrJson.toString(),
+                created_at = System.currentTimeMillis()
+            )
+
+            // 데이터베이스에 삽입하고 ID 반환
+            val newId = fairyTaleDao.insertFairyTale(newStory)
+            Log.d(TAG, "Created new story with selected voice, ID: $newId")
+            return@withContext newId
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create story with selected voice: ${e.message}", e)
+            throw Exception("Failed to create story with selected voice: ${e.message}", e)
         }
     }
 }
