@@ -95,6 +95,12 @@ class FairyTaleRepository(private val context: Context) {
             val originalStory = fairyTaleDao.getFairyTaleById(originalStoryId)
                 ?: throw IllegalArgumentException("Original story not found with ID: $originalStoryId")
 
+            // 추천된 음성 확인
+            val voiceEntity = AppDatabase.getInstance(context).voiceDao().getVoiceById(recommendedVoiceId)
+                ?: throw IllegalArgumentException("Recommended voice not found with ID: $recommendedVoiceId")
+
+            Log.d(TAG, "Found original story and recommended voice: ${voiceEntity.title}")
+
             // 원본 동화의 attribute JSON 파싱
             val originalAttrJson = JSONObject(originalStory.attribute)
 
@@ -115,6 +121,7 @@ class FairyTaleRepository(private val context: Context) {
                 // 중요: 음성 ID 바뀌었음을 명확히 표시
                 put("voiceIdChanged", true)
                 put("previousVoiceId", originalStory.voice_id)
+                put("recommendedVoiceId", recommendedVoiceId)
             }
 
             // 새 동화 엔티티 생성

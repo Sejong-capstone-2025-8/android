@@ -33,10 +33,12 @@ import com.toprunner.imagestory.navigation.NavRoute
 import com.toprunner.imagestory.ui.components.VoiceRecommendationDialog
 import com.toprunner.imagestory.viewmodel.FairyTaleViewModel
 import com.toprunner.imagestory.GeneratedStoryViewModel
+import com.toprunner.imagestory.data.entity.VoiceEntity
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.toprunner.imagestory.repository.FairyTaleRepository
 import com.toprunner.imagestory.model.VoiceFeatures
+import com.toprunner.imagestory.ui.components.VoiceSelectionDialog
 import kotlinx.coroutines.delay
 
 @Composable
@@ -47,7 +49,11 @@ fun GeneratedStoryScreen(
     generatedStoryViewModel: GeneratedStoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     fairyTaleViewModel: FairyTaleViewModel? = null
 ) {
+    var showVoiceSelectionDialog by remember { mutableStateOf(false) }
+    val voiceListState by generatedStoryViewModel.voiceListState.collectAsState()
+
     val context = LocalContext.current
+    var isCreatingRecommendedVoice by remember { mutableStateOf(false) }
 
     LaunchedEffect(storyId, bgmPath) {
         generatedStoryViewModel.loadStory(storyId, context, bgmPath)
@@ -130,22 +136,82 @@ fun GeneratedStoryScreen(
         }
     }
 
+    fun handleVoiceSelection() {
+        // 낭독용 음성 목록 로드
+        generatedStoryViewModel.loadCloneVoices(context)
+        // 다이얼로그 표시
+        showVoiceSelectionDialog = true
+    }
+
+    fun createStoryWithSelectedVoice(selectedVoice: VoiceEntity) {
+        scope.launch {
+            try {
+                // 로딩 상태 설정
+                isCreatingRecommendedVoice = true
+
+                // 다이얼로그 닫기
+                showVoiceSelectionDialog = false
+
+                // FairyTaleViewModel의 로딩 상태 활성화
+                localFairyTaleViewModel.startCreatingRecommendedVoiceStory()
+
+                // 뷰모델을 통해 새 동화 생성
+                val newStoryId = generatedStoryViewModel.createStoryWithSelectedVoice(context, selectedVoice)
+
+                // 성공 메시지
+                Toast.makeText(
+                    context,
+                    "선택한 음성으로 동화가 생성되었습니다.",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                // 동화 목록 갱신
+                localFairyTaleViewModel.finishCreatingRecommendedVoiceStory()
+
+                // 동화 목록 화면으로 이동
+                navController.navigate(NavRoute.FairyTaleList.route) {
+                    popUpTo(NavRoute.FairyTaleList.route) { inclusive = true }
+                }
+
+            } catch (e: Exception) {
+                // 오류 처리
+                localFairyTaleViewModel.finishCreatingRecommendedVoiceStory()
+                isCreatingRecommendedVoice = false
+                Toast.makeText(
+                    context,
+                    "동화 생성 중 오류가 발생했습니다: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            } finally {
+                // 항상 로딩 상태 비활성화
+                isCreatingRecommendedVoice = false
+            }
+        }
+    }
+
+
     // 음성 추천 함수
     fun handleVoiceRecommendation() {
         // 추천 다이얼로그 표시 및 뷰모델에 추천 요청
         showRecommendationDialog = true
         generatedStoryViewModel.recommendVoice(context)
     }
-
     // 추천된 음성으로 새 동화 생성 함수
     fun createStoryWithRecommendedVoice() {
         scope.launch {
             try {
-                // 동화 생성 시작 상태 설정 (FairyTaleViewModel에서 로딩 표시용)
+                // 로딩 상태 설정
+                isCreatingRecommendedVoice = true
+
+                // 추천 다이얼로그 닫기 (이미 닫혔을 수도 있음)
+                showRecommendationDialog = false
+
+                // FairyTaleViewModel의 로딩 상태 활성화
                 localFairyTaleViewModel.startCreatingRecommendedVoiceStory()
 
-                // 뷰모델을 통해 새 동화 생성
-                generatedStoryViewModel.createStoryWithRecommendedVoice(context)
+                // 중요: 실제 동화 생성 전에 화면 전환이 발생하지 않도록 함
+                // 뷰모델을 통해 새 동화 생성 - 여기서 실제 비동기 작업 발생
+                val newStoryId = generatedStoryViewModel.createStoryWithRecommendedVoice(context)
 
                 // 성공 메시지
                 Toast.makeText(
@@ -157,7 +223,7 @@ fun GeneratedStoryScreen(
                 // 동화 목록 갱신
                 localFairyTaleViewModel.finishCreatingRecommendedVoiceStory()
 
-                // 생성 성공 시 동화 목록 화면으로 이동
+                // 실제 동화 생성이 완료된 후에만 화면 전환
                 navController.navigate(NavRoute.FairyTaleList.route) {
                     popUpTo(NavRoute.FairyTaleList.route) { inclusive = true }
                 }
@@ -165,11 +231,15 @@ fun GeneratedStoryScreen(
             } catch (e: Exception) {
                 // 오류 처리
                 localFairyTaleViewModel.finishCreatingRecommendedVoiceStory()
+                isCreatingRecommendedVoice = false
                 Toast.makeText(
                     context,
                     "동화 생성 중 오류가 발생했습니다: ${e.message}",
                     Toast.LENGTH_LONG
                 ).show()
+            } finally {
+                // 항상 로딩 상태 비활성화
+                isCreatingRecommendedVoice = false
             }
         }
     }
@@ -434,7 +504,7 @@ fun GeneratedStoryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
-                onClick = { navController.navigate(NavRoute.VoiceList.route) },
+                onClick = { handleVoiceSelection() },  // 여기를 수정
                 modifier = Modifier
                     .weight(1f)
                     .height(36.dp)
@@ -587,6 +657,7 @@ fun GeneratedStoryScreen(
 
     // 동화 목록 화면에서 로딩 상태 표시
     val isCreatingNewStory by localFairyTaleViewModel.isCreatingNewStory.collectAsState()
+
     if (isCreatingNewStory) {
         Box(
             modifier = Modifier
@@ -612,6 +683,43 @@ fun GeneratedStoryScreen(
                 )
             }
         }
+    }
+
+    if (isCreatingRecommendedVoice) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(60.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "추천된 음성으로 동화를 생성하는 중입니다...",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+            }
+        }
+    }
+    if (showVoiceSelectionDialog) {
+        VoiceSelectionDialog(
+            voices = voiceListState.voices,
+            isLoading = voiceListState.isLoading,
+            onDismiss = { showVoiceSelectionDialog = false },
+            onSelectVoice = { selectedVoice ->
+                createStoryWithSelectedVoice(selectedVoice)
+            }
+        )
     }
 
     DisposableEffect(Unit) {

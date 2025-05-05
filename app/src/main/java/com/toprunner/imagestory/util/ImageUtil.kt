@@ -9,19 +9,30 @@ import android.util.Log
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import androidx.core.graphics.scale
 
 class ImageUtil {
     companion object {
         private const val TAG = "ImageUtil"
     }
 
-    fun compressImage(bitmap: Bitmap, quality: Int): Bitmap {
-        // 비트맵을 압축
+    fun compressImage(bitmap: Bitmap): Bitmap {
+        // 이미지 크기 제한 (예: 최대 1024x1024)
+        val maxSize = 1024
+        var scaledBitmap = bitmap
+
+        if (bitmap.width > maxSize || bitmap.height > maxSize) {
+            val ratio = maxSize.toFloat() / maxOf(bitmap.width, bitmap.height)
+            val newWidth = (bitmap.width * ratio).toInt()
+            val newHeight = (bitmap.height * ratio).toInt()
+            scaledBitmap = bitmap.scale(newWidth, newHeight)
+        }
+
+        // 압축률 조정
         val outputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
         val compressedBytes = outputStream.toByteArray()
 
-        // 압축된 데이터로 새 비트맵 생성
         return BitmapFactory.decodeByteArray(compressedBytes, 0, compressedBytes.size)
     }
 

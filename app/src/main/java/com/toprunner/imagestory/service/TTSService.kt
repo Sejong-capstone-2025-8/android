@@ -33,23 +33,43 @@ class TTSService(private val context: Context) {
     suspend fun generateVoice(text: String, voiceId: Long): ByteArray = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Generating voice for text length: ${text.length} with voice ID: $voiceId")
+
+            // 음성 엔티티 확인을 위해 voiceRepository의 getVoiceById 호출 추가
+            val voiceEntity = voiceRepository.getVoiceById(voiceId)
+            if (voiceEntity == null) {
+                Log.e(TAG, "Voice entity not found for ID: $voiceId")
+                return@withContext ByteArray(0)
+            }
+
+            // 음성 정보 로그 추가
+            Log.d(TAG, "Using voice: ${voiceEntity.title} with ID: ${voiceEntity.voice_id}")
+
             val headers = mapOf(
                 "Content-Type" to "application/json",
                 "xi-api-key" to API_KEY
             )
-            val elevenlabsVoiceId = getElevenlabsVoiceId(voiceId)
+
+            // elevenlabsVoiceId 가져오기 - 수정된 부분
+            val elevenlabsVoiceId = getElevenlabsVoiceId(voiceId, voiceEntity)
+            Log.d(TAG, "Using ElevenLabs voice ID: $elevenlabsVoiceId")
+
             val requestBody = createRequestBody(text)
             val apiUrl = "$API_URL/$elevenlabsVoiceId"
+
             val responseBytes = networkUtil.downloadAudio(apiUrl, headers, requestBody)
             if (responseBytes.isEmpty()) {
+                Log.e(TAG, "Empty response from ElevenLabs API")
                 throw IllegalStateException("음성 생성에 실패했습니다: 응답이 비어있습니다.")
             }
+
+            Log.d(TAG, "Successfully generated audio, size: ${responseBytes.size} bytes")
             responseBytes
         } catch (e: Exception) {
             Log.e(TAG, "Error generating voice: ${e.message}", e)
             generateDummyAudio(text.length)
         }
     }
+
 
 
     // 더미 오디오 데이터 생성 (테스트용)
@@ -75,8 +95,22 @@ class TTSService(private val context: Context) {
         return dummyAudio
     }
 
-    private fun getElevenlabsVoiceId(voiceId: Long): String {
-        // 음성 ID에 따라 Elevenlabs 음성 ID 결정
+    private fun getElevenlabsVoiceId(voiceId: Long, voiceEntity: VoiceEntity? = null): String {
+        // 1. 음성 객체가 전달된 경우, attribute에서 elevenlabsVoiceId를 추출 시도
+        if (voiceEntity != null) {
+            try {
+                val attributeJson = JSONObject(voiceEntity.attribute)
+                val elevenlabsId = attributeJson.optString("elevenlabsVoiceId", "")
+                if (elevenlabsId.isNotEmpty()) {
+                    Log.d(TAG, "Found ElevenLabs ID in voice attributes: $elevenlabsId")
+                    return elevenlabsId
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing voice attributes: ${e.message}")
+            }
+        }
+
+        // 2. 기본 매핑 사용
         return when (voiceId) {
             1L -> "21m00Tcm4TlvDq8ikWAM" // Rachel
             2L -> "AZnzlk1XvdvUeBnXmlld" // Domi

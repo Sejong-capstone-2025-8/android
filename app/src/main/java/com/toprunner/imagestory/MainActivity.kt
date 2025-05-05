@@ -49,6 +49,7 @@ import com.toprunner.imagestory.screens.*
 import com.toprunner.imagestory.ui.components.BottomNavBar
 import com.toprunner.imagestory.ui.theme.ImageStoryTheme
 import com.toprunner.imagestory.util.AudioAnalyzer
+import com.toprunner.imagestory.util.ImageUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -453,6 +454,7 @@ class MainActivity : ComponentActivity() {
     }
 
     // 동화 생성 시작
+    // MainActivity.kt의 startStoryCreation 메서드 수정
     private fun startStoryCreation(navController: androidx.navigation.NavController) {
         if (capturedImageBitmap == null) {
             Toast.makeText(this, "사진을 찍거나 선택해주세요", Toast.LENGTH_SHORT).show()
@@ -465,23 +467,36 @@ class MainActivity : ComponentActivity() {
         }
 
         isLoading = true
-        lifecycleScope.launch {
+
+        // 이미지 최적화를 먼저 수행
+        val imageUtil = ImageUtil()
+        lifecycleScope.launch(Dispatchers.Default) {
             try {
+                // 이미지 최적화 먼저 수행
                 val bitmap = capturedImageBitmap ?: throw IllegalStateException("이미지가 없습니다")
+                val optimizedBitmap = imageUtil.compressImage(bitmap)
                 val theme = selectedTheme ?: throw IllegalStateException("테마가 선택되지 않았습니다")
 
-                Log.d("MainActivity", "Starting story creation with theme: $theme")
-                val storyId = storyCreationController.createStory(bitmap, theme)
-                Log.d("MainActivity", "Story created successfully with ID: $storyId")
+                // 본격적인 동화 생성 작업
+                withContext(Dispatchers.IO) {
+                    Log.d("MainActivity", "Starting story creation with theme: $theme")
+                    val storyId = storyCreationController.createStory(optimizedBitmap, theme)
+                    Log.d("MainActivity", "Story created successfully with ID: $storyId")
 
-                isLoading = false
-
-                // 생성된 동화 화면으로 네비게이션
-                navController.navigate(NavRoute.GeneratedStory.createRoute(storyId))
+                    // UI 작업은 Main 스레드에서 수행
+                    withContext(Dispatchers.Main) {
+                        isLoading = false
+                        // 생성된 동화 화면으로 네비게이션
+                        navController.navigate(NavRoute.GeneratedStory.createRoute(storyId))
+                    }
+                }
             } catch (e: Exception) {
-                isLoading = false
-                Log.e("MainActivity", "Error creating story: ${e.message}", e)
-                Toast.makeText(this@MainActivity, "동화 생성에 실패했습니다: ${e.message}", Toast.LENGTH_LONG).show()
+                // UI 작업은 Main 스레드에서 수행
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    Log.e("MainActivity", "Error creating story: ${e.message}", e)
+                    Toast.makeText(this@MainActivity, "동화 생성에 실패했습니다: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }

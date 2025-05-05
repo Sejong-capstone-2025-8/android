@@ -1,5 +1,6 @@
 package com.toprunner.imagestory
 
+import android.content.ContentValues.TAG
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -47,6 +48,9 @@ data class VoiceRecommendationState(
 class GeneratedStoryViewModel : ViewModel() {
 
 
+    private val _voiceListState = MutableStateFlow(VoiceListState())
+    val voiceListState: StateFlow<VoiceListState> = _voiceListState.asStateFlow()
+
 
     private val _storyState = MutableStateFlow(StoryState())
     val storyState: StateFlow<StoryState> = _storyState.asStateFlow()
@@ -79,7 +83,47 @@ class GeneratedStoryViewModel : ViewModel() {
     private val _bgmVolume = MutableStateFlow(1f) // Default 100%
     val bgmVolume: StateFlow<Float> = _bgmVolume.asStateFlow()
 
-    // Add these methods for BGM control
+    data class VoiceListState(
+        val isLoading: Boolean = false,
+        val voices: List<VoiceEntity> = emptyList(),
+        val error: String? = null
+    )
+
+    fun loadCloneVoices(context: Context) {
+        viewModelScope.launch {
+            try {
+                _voiceListState.value = VoiceListState(isLoading = true)
+
+                val voiceRepository = VoiceRepository(context)
+                val allVoices = voiceRepository.getAllVoices()
+
+                // 낭독용 음성만 필터링
+                val cloneVoices = allVoices.filter { voice ->
+                    try {
+                        val attributeJson = JSONObject(voice.attribute)
+                        attributeJson.optBoolean("isClone", false)
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+
+                _voiceListState.value = VoiceListState(
+                    isLoading = false,
+                    voices = cloneVoices
+                )
+
+                Log.d(TAG, "Loaded ${cloneVoices.size} clone voices")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading clone voices: ${e.message}", e)
+                _voiceListState.value = VoiceListState(
+                    isLoading = false,
+                    error = "음성 목록을 불러오는 중 오류가 발생했습니다: ${e.message}"
+                )
+            }
+        }
+    }
+
+
     fun setBackgroundMusicPath(path: String) {
         Log.d("GeneratedStoryViewModel", "배경음 경로 설정 전: ${_bgmPath.value}")
         _bgmPath.value = path
@@ -139,6 +183,66 @@ class GeneratedStoryViewModel : ViewModel() {
                     resumeBackgroundMusic()
                 }
             }
+        }
+    }
+    suspend fun createStoryWithSelectedVoice(context: Context, selectedVoice: VoiceEntity): Long {
+        try {
+            Log.d(TAG, "Starting to create story with selected voice: ${selectedVoice.title}, ID: ${selectedVoice.voice_id}")
+
+            if (_storyState.value.storyId <= 0) {
+                throw IllegalStateException("원본 동화 ID가 유효하지 않습니다")
+            }
+
+            // 동화 생성 진행 중 상태로 변경
+            _recommendationState.value = _recommendationState.value.copy(cloneCreationInProgress = true)
+
+            // 원본 동화 ID와 텍스트 내용
+            val originalStoryId = _storyState.value.storyId
+            val storyContent = _storyState.value.storyContent
+
+            // 새 동화 제목 생성
+            val newTitle = "${_storyState.value.storyTitle} (${selectedVoice.title} 버전)"
+
+            // TTS 서비스 초기화 확인
+            if (ttsService == null) {
+                ttsService = TTSService(context)
+            }
+
+            // 선택한 음성으로 동화 텍스트 읽기
+            Log.d(TAG, "Generating audio with selected voice ID: ${selectedVoice.voice_id}")
+            val audioData = ttsService?.generateVoice(storyContent, selectedVoice.voice_id) ?: ByteArray(0)
+
+            if (audioData.isEmpty()) {
+                Log.e(TAG, "Failed to generate audio with selected voice")
+                throw IllegalStateException("선택한 음성으로 오디오를 생성할 수 없습니다")
+            }
+
+            Log.d(TAG, "Successfully generated audio with selected voice, size: ${audioData.size} bytes")
+
+            // 새 동화 저장
+            val fairyTaleRepository = FairyTaleRepository(context)
+            val newStoryId = fairyTaleRepository.createStoryWithRecommendedVoice(
+                originalStoryId = originalStoryId,
+                recommendedVoiceId = selectedVoice.voice_id,
+                newTitle = newTitle,
+                audioData = audioData
+            )
+
+            _recommendationState.value = _recommendationState.value.copy(
+                cloneCreationInProgress = false,
+                newStoryCreated = true,
+                newStoryId = newStoryId
+            )
+
+            Log.d(TAG, "Created new story with ID: $newStoryId")
+
+            // 생성된 동화 ID 반환
+            return newStoryId
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating story with selected voice: ${e.message}", e)
+            _recommendationState.value = _recommendationState.value.copy(cloneCreationInProgress = false)
+            throw e
         }
     }
 
@@ -523,61 +627,68 @@ class GeneratedStoryViewModel : ViewModel() {
     }
 
     // 추천된 음성으로 동화 복제
-    fun createStoryWithRecommendedVoice(context: Context) {
-        viewModelScope.launch {
-            try {
-                val recommendedVoice = _recommendationState.value.recommendedVoice
-                if (recommendedVoice == null || _storyState.value.storyId <= 0) {
-                    Log.e("GeneratedStoryViewModel", "Cannot create story with recommended voice: required data missing")
-                    return@launch
-                }
+    suspend fun createStoryWithRecommendedVoice(context: Context): Long {
+        try {
+            Log.d(TAG, "Starting to create story with recommended voice")
 
-                // *** 추천된 음성이 현재 음성과 같은지 확인 ***
-                if (recommendedVoice.voice_id == _storyState.value.voiceId) {
-                    Log.d("GeneratedStoryViewModel", "Recommended voice is the same as current voice, using a different voice")
-                    // 다른 음성을 찾아볼 수도 있지만, 여기서는 그냥 계속 진행
-                }
+            val recommendedVoice = _recommendationState.value.recommendedVoice
+                ?: throw IllegalStateException("추천된 음성이 없습니다")
 
-                _recommendationState.value = _recommendationState.value.copy(cloneCreationInProgress = true)
-
-                // 원본 동화 ID와 텍스트 내용
-                val originalStoryId = _storyState.value.storyId
-                val storyContent = _storyState.value.storyContent
-
-                // 새 동화 제목 생성 (원본 + 추천된 음성 버전)
-                val newTitle = "${_storyState.value.storyTitle} (추천된 음성 버전)"
-
-                // TTS 서비스를 사용해서 추천된 음성으로 동화 텍스트 읽기
-                val audioData = ttsService?.generateVoice(storyContent, recommendedVoice.voice_id) ?: ByteArray(0)
-
-                if (audioData.isEmpty()) {
-                    Log.e("GeneratedStoryViewModel", "Failed to generate audio with recommended voice")
-                    _recommendationState.value = _recommendationState.value.copy(cloneCreationInProgress = false)
-                    return@launch
-                }
-
-                // FairyTaleRepository를 통해 새 동화 저장
-                val fairyTaleRepository = FairyTaleRepository(context)
-                val newStoryId = fairyTaleRepository.createStoryWithRecommendedVoice(
-                    originalStoryId = originalStoryId,
-                    recommendedVoiceId = recommendedVoice.voice_id,
-                    newTitle = newTitle,
-                    audioData = audioData
-                )
-
-                _recommendationState.value = _recommendationState.value.copy(
-                    cloneCreationInProgress = false,
-                    newStoryCreated = true,
-                    newStoryId = newStoryId
-                )
-
-                // 성공 로그
-                Log.d("GeneratedStoryViewModel", "Created new story with ID: $newStoryId")
-
-            } catch (e: Exception) {
-                Log.e("GeneratedStoryViewModel", "Error creating story with recommended voice: ${e.message}", e)
-                _recommendationState.value = _recommendationState.value.copy(cloneCreationInProgress = false)
+            if (_storyState.value.storyId <= 0) {
+                throw IllegalStateException("원본 동화 ID가 유효하지 않습니다")
             }
+
+            _recommendationState.value = _recommendationState.value.copy(cloneCreationInProgress = true)
+
+            // 원본 동화 ID와 텍스트 내용
+            val originalStoryId = _storyState.value.storyId
+            val storyContent = _storyState.value.storyContent
+
+            // 새 동화 제목 생성
+            val newTitle = "${_storyState.value.storyTitle} (추천된 음성 버전)"
+
+            // 로그 추가 - 추천된 음성 ID 확인
+            Log.d(TAG, "Using recommended voice ID: ${recommendedVoice.voice_id}, title: ${recommendedVoice.title}")
+
+            // TTS 서비스 초기화 확인
+            if (ttsService == null) {
+                ttsService = TTSService(context)
+            }
+
+            // 추천된 음성으로 동화 텍스트 읽기 - 여기서 문제가 발생할 수 있음
+            val audioData = ttsService?.generateVoice(storyContent, recommendedVoice.voice_id) ?: ByteArray(0)
+
+            if (audioData.isEmpty()) {
+                Log.e(TAG, "Failed to generate audio with recommended voice")
+                throw IllegalStateException("추천된 음성으로 오디오를 생성할 수 없습니다")
+            }
+
+            Log.d(TAG, "Successfully generated audio with recommended voice, size: ${audioData.size} bytes")
+
+            // 새 동화 저장
+            val fairyTaleRepository = FairyTaleRepository(context)
+            val newStoryId = fairyTaleRepository.createStoryWithRecommendedVoice(
+                originalStoryId = originalStoryId,
+                recommendedVoiceId = recommendedVoice.voice_id,
+                newTitle = newTitle,
+                audioData = audioData
+            )
+
+            _recommendationState.value = _recommendationState.value.copy(
+                cloneCreationInProgress = false,
+                newStoryCreated = true,
+                newStoryId = newStoryId
+            )
+
+            Log.d(TAG, "Created new story with ID: $newStoryId")
+
+            // 생성된 동화 ID 반환
+            return newStoryId
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating story with recommended voice: ${e.message}", e)
+            _recommendationState.value = _recommendationState.value.copy(cloneCreationInProgress = false)
+            throw e
         }
     }
     // 추가: 새 동화 생성 완료 상태 초기화
