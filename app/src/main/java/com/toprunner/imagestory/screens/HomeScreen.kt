@@ -1144,7 +1144,7 @@ fun NeuomorphicButton(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
             CompositionLocalProvider(LocalContentColor provides contentColor) {

@@ -116,6 +116,10 @@ fun VoiceListScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var voiceToDelete by remember { mutableStateOf<VoiceEntity?>(null) }
 
+    // 제목 편집 다이얼로그 상태
+    var showEditTitleDialog by remember { mutableStateOf(false) }
+    var voiceToEdit by remember { mutableStateOf<VoiceEntity?>(null) }
+
 
     // 클론 음성 생성 관련 다이얼로그 상태
     var showCloneDialog by remember { mutableStateOf(false) }
@@ -199,6 +203,44 @@ fun VoiceListScreen(
         }
     }
 
+    // 제목 업데이트 함수 (새로 추가)
+    fun updateVoiceTitle(voice: VoiceEntity, newTitle: String) {
+        scope.launch {
+            try {
+                val success = repo.updateVoiceTitle(voice.voice_id, newTitle)
+                if (success) {
+                    // 성공 시 목록 갱신
+                    Toast.makeText(context, "제목이 변경되었습니다.", Toast.LENGTH_SHORT).show()
+
+                    // 기본 음성 목록 갱신
+                    voices = repo.getAllVoices().filter { v ->
+                        try {
+                            val attributeJson = JSONObject(v.attribute)
+                            !attributeJson.optBoolean("isClone", false)
+                        } catch (e: Exception) {
+                            true
+                        }
+                    }
+
+                    // 낭독용 음성 목록 갱신
+                    cloneVoices = repo.getAllVoices().filter { v ->
+                        try {
+                            val attributeJson = JSONObject(v.attribute)
+                            attributeJson.optBoolean("isClone", false)
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }
+                } else {
+                    Toast.makeText(context, "제목 변경에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "오류: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+
     // 재생/정지 토글 함수
     fun toggleVoice(voice: VoiceEntity) = scope.launch {
         // 현재 재생 중인 목소리가 있다면 정지
@@ -268,7 +310,7 @@ fun VoiceListScreen(
                 val result = voiceCloneService.cloneVoice(
                     sourceVoicePath = sourceVoice.voice_path,
                     sampleText = sampleText,
-                    name = "복제음성_${sourceVoice.title}"
+                    name = "낭독용_${sourceVoice.title}"
                 )
 
                 if (result.first) {
@@ -366,7 +408,7 @@ fun VoiceListScreen(
                     }
                 }
 
-// 낭독용 음성 생성 버튼
+                // 낭독용 음성 생성 버튼
                 NeuomorphicButton(
                     onClick = { showCloneDialog = true },
                     modifier = Modifier
@@ -432,10 +474,14 @@ fun VoiceListScreen(
                                     VoiceItemCard(
                                         voice = voice,
                                         isPlaying = currentPlayingVoiceId == voice.voice_id,
-                                        onClick = { }, // 더 이상 사용하지 않음
+                                        onClick = { },
                                         onDelete = { deleteVoice(voice) },
                                         onPlayClick = { toggleVoice(voice) },
-                                        onShowFeaturesClick = { loadVoiceFeatures(voice) }
+                                        onShowFeaturesClick = { loadVoiceFeatures(voice) },
+                                        onEditTitleClick = { // 제목 편집 콜백 추가
+                                            voiceToEdit = voice
+                                            showEditTitleDialog = true
+                                        }
                                     )
                                 }
                             }
@@ -475,7 +521,11 @@ fun VoiceListScreen(
                                         onDelete = { deleteVoice(voice) },
                                         onPlayClick = { toggleVoice(voice) },
                                         onShowFeaturesClick = { loadVoiceFeatures(voice) },
-                                        isClonedVoice = true
+                                        isClonedVoice = true,
+                                        onEditTitleClick = { // 제목 편집 콜백 추가
+                                            voiceToEdit = voice
+                                            showEditTitleDialog = true
+                                        }
                                     )
                                 }
                             }
@@ -553,6 +603,23 @@ fun VoiceListScreen(
                         }
                     }
                 }
+            }
+            // 제목 편집 다이얼로그
+            if (showEditTitleDialog && voiceToEdit != null) {
+                EditTitleDialog(
+                    currentTitle = voiceToEdit!!.title,
+                    onDismiss = {
+                        showEditTitleDialog = false
+                        voiceToEdit = null
+                    },
+                    onConfirm = { newTitle ->
+                        voiceToEdit?.let { voice ->
+                            updateVoiceTitle(voice, newTitle)
+                        }
+                        showEditTitleDialog = false
+                        voiceToEdit = null
+                    }
+                )
             }
             // 삭제 확인 다이얼로그
             if (showDeleteDialog && voiceToDelete != null) {
@@ -1276,10 +1343,11 @@ fun EnhancedVoiceSelectionItem(
 fun VoiceItemCard(
     voice: VoiceEntity,
     isPlaying: Boolean,
-    onClick: () -> Unit, // 카드 전체 클릭 -> 이제 사용하지 않음
+    onClick: () -> Unit,
     onDelete: () -> Unit,
-    onPlayClick: () -> Unit, // 음성 재생 버튼 클릭
-    onShowFeaturesClick: () -> Unit, // 음성 특징 보기 버튼 클릭
+    onPlayClick: () -> Unit,
+    onShowFeaturesClick: () -> Unit,
+    onEditTitleClick: () -> Unit,  // 제목 편집 콜백 추가
     isClonedVoice: Boolean = false
 ) {
     val dateFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
@@ -1289,7 +1357,6 @@ fun VoiceItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        // clickable 제거 - 전체 카드 클릭으로 재생되지 않음
         colors = CardDefaults.cardColors(containerColor = if (isClonedVoice) Color(0xFFFEF9E7) else Color.White),
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -1300,13 +1367,13 @@ fun VoiceItemCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 아이콘 영역 - 클릭 시 재생
+            // 재생 버튼 (기존 코드 유지)
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(if (isPlaying) Color(0xFFE9D364) else Color(0xFFFFEED0))
-                    .clickable { onPlayClick() }, // 재생 버튼 클릭 이벤트
+                    .clickable { onPlayClick() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -1325,15 +1392,33 @@ fun VoiceItemCard(
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
+
+            // 제목 및 정보 (제목에 클릭 이벤트 추가)
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = voice.title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onEditTitleClick() } // 제목 클릭 시 편집 기능 실행
+                ) {
+                    Text(
+                        text = voice.title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // 편집 아이콘 추가
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_edit), // 편집 아이콘 필요
+                        contentDescription = "편집",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(4.dp))
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1355,20 +1440,20 @@ fun VoiceItemCard(
                 }
             }
 
-            // 음성 특징 확인 버튼 추가
+            // 음성 특징 확인 버튼 (기존 코드 유지)
             IconButton(
                 onClick = { onShowFeaturesClick() },
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_info), // 정보 아이콘 필요
+                    painter = painterResource(id = R.drawable.ic_info),
                     contentDescription = "Voice Features",
                     tint = Color(0xFF9C8A54),
                     modifier = Modifier.size(20.dp)
                 )
             }
 
-            // 삭제 아이콘
+            // 삭제 아이콘 (기존 코드 유지)
             IconButton(
                 onClick = { onDelete() },
                 modifier = Modifier.size(36.dp)
@@ -1380,10 +1465,51 @@ fun VoiceItemCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
-
-            // 재생 아이콘 (제거 - 왼쪽의 스피커 아이콘으로 대체됨)
         }
     }
+}
+
+// 제목 편집 다이얼로그 컴포넌트
+@Composable
+fun EditTitleDialog(
+    currentTitle: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var newTitle by remember { mutableStateOf(currentTitle) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("음성 제목 수정") },
+        text = {
+            OutlinedTextField(
+                value = newTitle,
+                onValueChange = { newTitle = it },
+                label = { Text("새 제목") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (newTitle.isNotBlank()) {
+                        onConfirm(newTitle)
+                    }
+                },
+                enabled = newTitle.isNotBlank()
+            ) {
+                Text("저장")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
 }
 
 @Composable

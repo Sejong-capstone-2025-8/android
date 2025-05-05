@@ -163,7 +163,7 @@ fun VoiceSelectionDialog(
                         shape = RoundedCornerShape(12.dp),
                         enabled = selectedVoice != null
                     ) {
-                        Text("선택한 음성으로 동화 생성")
+                        Text("동화 생성")
                     }
                 }
             }

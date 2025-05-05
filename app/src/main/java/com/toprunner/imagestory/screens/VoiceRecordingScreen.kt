@@ -483,7 +483,7 @@ fun VoiceRecordingScreen(
                 text = "음성 분석 결과",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
             // 기존의 VoiceFeatureVisualization 함수 호출

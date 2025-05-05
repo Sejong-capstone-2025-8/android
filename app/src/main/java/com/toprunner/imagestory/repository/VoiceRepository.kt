@@ -281,6 +281,33 @@ class VoiceRepository(private val context: Context) {
             defaultVoice ?: 0L
         }
     }
+    suspend fun updateVoiceTitle(voiceId: Long, newTitle: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Updating voice title for ID: $voiceId, new title: $newTitle")
+
+            // 기존 음성 정보 가져오기
+            val voice = voiceDao.getVoiceById(voiceId) ?: return@withContext false
+
+            // 새 제목으로 엔티티 복사
+            val updatedVoice = voice.copy(title = newTitle)
+
+            // 데이터베이스 업데이트
+            val result = voiceDao.updateVoice(updatedVoice)
+            val success = result > 0
+
+            if (success) {
+                Log.d(TAG, "Voice title updated successfully")
+            } else {
+                Log.d(TAG, "Voice title update failed")
+            }
+
+            return@withContext success
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating voice title: ${e.message}", e)
+            return@withContext false
+        }
+    }
+
 
     private fun getDefaultVoiceFeatures(voiceType: String): VoiceFeatures {
         return when (voiceType) {

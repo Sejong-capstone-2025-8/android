@@ -23,6 +23,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -38,9 +39,11 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.toprunner.imagestory.repository.FairyTaleRepository
 import com.toprunner.imagestory.model.VoiceFeatures
+import com.toprunner.imagestory.screens.NeuomorphicButton
 import com.toprunner.imagestory.ui.components.VoiceSelectionDialog
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GeneratedStoryScreen(
     storyId: Long,
@@ -274,10 +277,10 @@ fun GeneratedStoryScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Text(
-                text = storyState.storyTitle.ifEmpty { "동화 제목" },
+                text = "Image Story",
                 modifier = Modifier.align(Alignment.Center),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -348,16 +351,16 @@ fun GeneratedStoryScreen(
         ) {
             Text(
                 text = storyState.storyTitle.ifEmpty { "동화 제목" },
-                fontSize = 22.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = "narrated by AI Voice",
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 color = Color(0xFFAA8866),
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
 
@@ -403,14 +406,14 @@ fun GeneratedStoryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 재생/일시정지 버튼
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFE9D364))
                     .clickable { generatedStoryViewModel.toggleAudioPlayback() },
@@ -422,7 +425,7 @@ fun GeneratedStoryScreen(
                     ),
                     contentDescription = if (isPlaying) "Pause" else "Play",
                     tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
             Spacer(modifier = Modifier.width(24.dp))
@@ -430,7 +433,7 @@ fun GeneratedStoryScreen(
             // 정지 버튼
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFE9D364))
                     .clickable { generatedStoryViewModel.stopAudio() },
@@ -440,7 +443,7 @@ fun GeneratedStoryScreen(
                     painter = painterResource(id = R.drawable.ic_stop),
                     contentDescription = "Stop",
                     tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
@@ -449,7 +452,7 @@ fun GeneratedStoryScreen(
             // BGM 컨트롤 버튼
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(Color(0xFF9ED8D8))
                     .clickable {
@@ -464,7 +467,7 @@ fun GeneratedStoryScreen(
                     ),
                     contentDescription = if (isBgmPlaying) "BGM Pause" else "BGM Play",
                     tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -473,7 +476,7 @@ fun GeneratedStoryScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 14.dp, vertical = 6.dp)
         ) {
             Text(
                 text = "배경음 음량 조절",
@@ -481,76 +484,134 @@ fun GeneratedStoryScreen(
                 fontWeight = FontWeight.Medium,
                 color = Color.DarkGray
             )
+            // 커스텀 슬라이더 크기 설정
             Slider(
                 value = bgmVolume,
                 onValueChange = { newVolume ->
                     generatedStoryViewModel.setBackgroundMusicVolume(newVolume)
                 },
                 valueRange = 0f..1f,
-                steps = 8, // 10단계 정도로 나눔 (0.0 ~ 1.0)
+                steps = 8,
+                modifier = Modifier
+                    .fillMaxWidth(1f)
+                    .height(24.dp)
+                    .padding(top = 8.dp)
+                    .align(Alignment.CenterHorizontally),
+                // 슬라이더 커스텀 설정
                 colors = SliderDefaults.colors(
                     thumbColor = Color(0xFFAA8866),
-                    activeTrackColor = Color(0xFFAA8866)
-                )
+                    activeTrackColor = Color(0xFFAA8866),
+                    inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
+                ),
+                // 트랙과 썸 크기 조정을 위한 설정
+                thumb = {
+                    // 커스텀 썸 (더 크게 설정)
+                    Box(
+                        modifier = Modifier
+                            .height(20.dp)
+                            .width(5.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFC000))
+                    )
+                },
+                track = { state ->
+                    // 커스텀 트랙 (더 두껍게 설정)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp) // 트랙 높이를 8dp로 설정
+                            .clip(RoundedCornerShape(4.dp))
+                    ) {
+                        // 비활성 부분
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .background(Color.LightGray.copy(alpha = 0.7f))
+                        )
+                        // 활성 부분
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(state.value)
+                                .height(8.dp)
+                                .background(Color(0xFFAA8866))
+                        )
+                    }
+                }
             )
+
         }
 
         // 기능 버튼 영역 (목소리 선택, 배경음 설정, 목소리 추천)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 4.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(
-                onClick = { handleVoiceSelection() },  // 여기를 수정
+            Spacer(modifier = Modifier.width(8.dp))
+
+            NeuomorphicButton(
+                onClick = { handleVoiceSelection() },
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
-                    .padding(end = 2.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566))
+                    .height(36.dp),
+                backgroundColor = Color(0xFFFEE566),
+                cornerRadius = 8.dp,
+                elevation = 4.dp
             ) {
-                Text(
+
+            Text(
                     text = "목소리 선택",
-                    fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+
+                fontSize = 12.sp,
                     color = Color.Black
                 )
             }
 
-            Button(
+            Spacer(modifier = Modifier.width(8.dp))
+
+
+            NeuomorphicButton(
                 onClick = { navController.navigate(NavRoute.MusicList.routeWithArgs(storyId)) },
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
-                    .padding(horizontal = 2.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566))
+                    .height(36.dp),
+                backgroundColor = Color(0xFFFEE566),
+                cornerRadius = 8.dp,
+                elevation = 4.dp
             ) {
                 Text(
                     text = "배경음 설정",
+                    fontWeight = FontWeight.Bold,
+
                     fontSize = 12.sp,
                     color = Color.Black
                 )
             }
 
-            Button(
+            Spacer(modifier = Modifier.width(8.dp))
+
+            NeuomorphicButton(
                 onClick = { handleVoiceRecommendation() },
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
-                    .padding(start = 2.dp),
-                enabled = !storyState.isLoading,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE566))
+                    .height(36.dp),
+                backgroundColor = Color(0xFFFEE566),
+                cornerRadius = 8.dp,
+                elevation = 4.dp
             ) {
                 Text(
                     text = "목소리 추천",
+                    fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     color = Color.Black
                 )
             }
+            Spacer(modifier = Modifier.width(8.dp))
+
         }
 
         // 동화 텍스트 영역
@@ -675,7 +736,7 @@ fun GeneratedStoryScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "추천된 음성으로 동화를 생성하는 중입니다...",
+                    text = "동화를 생성하는 중입니다...",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -702,7 +763,7 @@ fun GeneratedStoryScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "추천된 음성으로 동화를 생성하는 중입니다...",
+                    text = "동화를 생성하는 중입니다...",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
