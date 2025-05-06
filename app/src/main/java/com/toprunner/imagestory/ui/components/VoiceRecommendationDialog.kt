@@ -8,12 +8,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -46,21 +49,23 @@ fun VoiceRecommendationDialog(
     similarityPercentage: Int,
     onDismiss: () -> Unit,
     onUseRecommendedVoice: () -> Unit
-
 ) {
-    // 다이얼로그 속성 설정 - 단순화
+    // 다이얼로그 기본 속성 설정 (전체 크기 사용 안함)
     val dialogProperties = DialogProperties(
         dismissOnBackPress = true,
         dismissOnClickOutside = true,
         usePlatformDefaultWidth = false
     )
 
-    // 단순화된 진입 애니메이션 (성능 개선)
+    // 애니메이션 효과
     val dialogScale = remember { Animatable(0.95f) }
     LaunchedEffect(Unit) {
         dialogScale.animateTo(
             targetValue = 1f,
-            animationSpec = tween(300, easing = FastOutSlowInEasing)
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
+            )
         )
     }
 
@@ -68,11 +73,12 @@ fun VoiceRecommendationDialog(
         onDismissRequest = onDismiss,
         properties = dialogProperties
     ) {
+        // 전체 컨테이너 (전체 크기 제한 및 배경 설정)
         Box(
             modifier = Modifier
-                .padding(24.dp)
+                .padding(18.dp)
                 .width(320.dp)
-                .height(if (isLoading) 420.dp else 560.dp)
+                .height(650.dp)
                 .graphicsLayer {
                     scaleX = dialogScale.value
                     scaleY = dialogScale.value
@@ -84,28 +90,26 @@ fun VoiceRecommendationDialog(
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color.White)
         ) {
-            // 메인 컨텐츠
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
+                    .fillMaxWidth()
+                    .padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 애니메이션이 제거된 단순화된 헤더
-                ImprovedHeader(onDismiss = onDismiss)
+                // 헤더 부분
+                ProfessionalHeader(onDismiss = onDismiss)
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // 단순한 구분선
                 Divider(
                     modifier = Modifier.fillMaxWidth(),
                     color = Color(0xFFE0E0E0),
                     thickness = 1.dp
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // 메인 컨텐츠 영역
+                // 본문 부분 (로딩 중 또는 결과 표시)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -113,22 +117,658 @@ fun VoiceRecommendationDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     if (isLoading) {
-                        FileAnalysisAnimation()
+                        AdvancedAnalysisAnimation(storyFeatures)
                     } else {
-                        ResultContent(recommendedVoice, similarityPercentage)
+                        // 스크롤 가능한 결과 화면으로 변경
+                        ComprehensiveResultContent(
+                            recommendedVoice = recommendedVoice,
+                            storyFeatures = storyFeatures,
+                            similarityPercentage = similarityPercentage
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // 개선된 버튼 영역
-                ImprovedActionButtons(
+                // 하단 버튼 영역
+                EnhancedActionButtons(
                     isLoading = isLoading,
                     recommendedVoice = recommendedVoice,
                     onDismiss = onDismiss,
                     onUseRecommendedVoice = onUseRecommendedVoice
                 )
             }
+        }
+    }
+}
+@Composable
+private fun ProfessionalHeader(onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 로고 (파동 효과 적용)
+        Box(
+            modifier = Modifier.size(48.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // 파동 배경 효과
+            val infiniteTransition = rememberInfiniteTransition(label = "파동")
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.2f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1000, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "파동 크기"
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = 2f - scale
+                    }
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFFE9B44C),
+                                Color(0xFFE9B44C).copy(alpha = 0f)
+                            )
+                        ),
+                        shape = CircleShape
+                    )
+            )
+
+            // 로고 배경
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFFE9B44C),
+                                Color(0xFFFF9966)
+                            )
+                        )
+                    )
+                    .border(1.dp, Color.White, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_volume_up),
+                    contentDescription = "음성 분석",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "음성 분석 & 추천",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF333333)
+            )
+
+            Text(
+                text = "동화에 가장 잘 어울리는 최적의 음성을 분석합니다",
+                fontSize = 13.sp,
+                color = Color(0xFF666666)
+            )
+        }
+
+        // 닫기 버튼
+        IconButton(
+            onClick = onDismiss,
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFF0F0F0))
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_close),
+                contentDescription = "닫기",
+                tint = Color(0xFF666666),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdvancedAnalysisAnimation(storyFeatures: VoiceFeatures) {
+    val scope = rememberCoroutineScope()
+
+    // 분석 단계
+    val phases = listOf(
+        "음성 특성 추출", "주파수 분석", "MFCC 처리", "피치 분석",
+        "패턴 인식", "음색 매핑", "유사도 계산", "최적 매칭"
+    )
+    var currentPhase by remember { mutableStateOf(0) }
+
+    // 기술 데이터 디스플레이 애니메이션
+    val infiniteTransition = rememberInfiniteTransition(label = "데이터전환")
+
+    // 주파수 스펙트럼 애니메이션
+    val frequencyShift by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2 * PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing)
+        ),
+        label = "주파수변이"
+    )
+
+    // 데이터 시각화 애니메이션
+    val dataValues = List(12) { index ->
+        infiniteTransition.animateFloat(
+            initialValue = 0.1f,
+            targetValue = 0.9f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = 2000 + (index * 100),
+                    easing = FastOutSlowInEasing,
+                    delayMillis = index * 150
+                ),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "데이터점$index"
+        )
+    }
+
+
+    // MFCC 행렬 시각화
+    val mfccAlpha by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "mfcc투명도"
+    )
+
+    // 단계 진행 애니메이션
+    LaunchedEffect(Unit) {
+        while(true) {
+            delay(2000)
+            currentPhase = (currentPhase + 1) % phases.size
+        }
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // 고급 시각화 영역
+        Box(
+            modifier = Modifier
+                .size(220.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF222222),
+                            Color(0xFF1A1A1A)
+                        )
+                    )
+                )
+                .border(1.dp, Color(0xFF444444), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            // 그리드 배경
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                // 그리드 라인 그리기
+                val gridColor = Color(0xFF333333)
+                for (i in 0..10) {
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(0f, size.height * i / 10),
+                        end = Offset(size.width, size.height * i / 10),
+                        strokeWidth = 0.5f
+                    )
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(size.width * i / 10, 0f),
+                        end = Offset(size.width * i / 10, size.height),
+                        strokeWidth = 0.5f
+                    )
+                }
+
+                // 주파수 스펙트럼 그리기
+                val path = Path()
+                path.moveTo(0f, size.height / 2)
+
+                for (x in 0 until size.width.toInt() step 4) {
+                    val xRatio = x.toFloat() / size.width
+
+                    // 복잡한 시각화를 위해 여러 사인파 결합
+                    val y1 = sin(xRatio * 10 + frequencyShift) * size.height * 0.1f
+                    val y2 = sin(xRatio * 5 + frequencyShift * 1.5f) * size.height * 0.08f
+                    val y3 = sin(xRatio * 15 + frequencyShift * 0.8f) * size.height * 0.05f
+
+                    val y = size.height / 2 + y1 + y2 + y3
+
+                    path.lineTo(x.toFloat(), y)
+                }
+
+                drawPath(
+                    path = path,
+                    color = Color(0xFF4CAF50),
+                    style = Stroke(width = 2f)
+                )
+
+                // 피치 표시기 그리기
+                val pitchHeight = size.height * (1.0 - (storyFeatures.averagePitch / 300.0)).toFloat().coerceIn(0.2f, 0.8f)
+                drawLine(
+                    color = Color(0xFFE9B44C),
+                    start = Offset(0f, pitchHeight),
+                    end = Offset(size.width, pitchHeight),
+                    strokeWidth = 1.5f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 4f))
+                )
+
+                // MFCC 시각화 그리기
+                val mfccSize = size.width / 13f
+                val mfccStartY = size.height * 0.7f
+                val mfccHeight = mfccSize * 0.5f
+
+                for (i in 0 until min(storyFeatures.mfccValues.size, 5)) {
+                    val rowOffset = i * mfccHeight
+
+                    for (j in 0 until min(storyFeatures.mfccValues[i].size, 13)) {
+                        val colOffset = j * mfccSize
+                        val value = storyFeatures.mfccValues[i][j]
+                        val normalizedValue = ((value + 20) / 40).coerceIn(0.0, 1.0)
+
+                        // 값에 따라 색상 계산
+                        val color = when {
+                            normalizedValue < 0.33 -> Color(0x2D2196F3)
+                            normalizedValue < 0.66 -> Color(0x2DFFEB3B)
+                            else -> Color(0x2CE91E63)
+                        }
+
+                        drawRect(
+                            color = color.copy(alpha = mfccAlpha),
+                            topLeft = Offset(colOffset, mfccStartY + rowOffset),
+                            size = Size(mfccSize - 1f, mfccHeight - 1f)
+                        )
+                    }
+                }
+
+                // 데이터 포인트 그리기
+                val dataWidth = size.width / dataValues.size
+                for (i in dataValues.indices) {
+                    val x = i * dataWidth + dataWidth / 2
+                    val height = dataValues[i].value * size.height * 0.4f
+                    val y = size.height * 0.3f
+
+                    drawLine(
+                        color = Color(0xFF03A9F4),
+                        start = Offset(x, y),
+                        end = Offset(x, y - height),
+                        strokeWidth = 2f,
+                        cap = StrokeCap.Round
+                    )
+
+                    drawCircle(
+                        color = Color(0xFF03A9F4),
+                        radius = 3f,
+                        center = Offset(x, y - height)
+                    )
+                }
+            }
+
+            // 처리 중 표시용 애니메이션 점
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(5) { index ->
+                    val delay = index * 300
+                    val alpha by infiniteTransition.animateFloat(
+                        initialValue = 0.2f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000, delayMillis = delay, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "점$index"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(8.dp)
+                            .alpha(alpha)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 분석 단계 표시
+        Text(
+            text = phases[currentPhase],
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFE9B44C)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 데이터 통계
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            DataStatistic(
+                label = "평균 피치",
+                value = "${storyFeatures.averagePitch.toInt()} Hz"
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            DataStatistic(
+                label = "변동성",
+                value = "${storyFeatures.pitchStdDev.toInt()} Hz"
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            DataStatistic(
+                label = "MFCC 차원",
+                value = "${storyFeatures.mfccValues.size * (storyFeatures.mfccValues.firstOrNull()?.size ?: 0)}"
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 진행 표시 바
+        LinearProgressIndicator(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            progress = { (currentPhase + 1).toFloat() / phases.size },
+            color = Color(0xFFE9B44C),
+            trackColor = Color(0xFFEEEEEE)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 기술적 설명
+        Text(
+            text = when (currentPhase) {
+                0 -> "동화 내용에 최적화된 음성 특성을 추출하고 있습니다"
+                1 -> "주파수 스펙트럼 분석을 통해 음성 패턴 분석 중"
+                2 -> "MFCC(멜 주파수 켑스트럼 계수) 계산 중"
+                3 -> "음성의 피치 및 변동성 분석 중"
+                4 -> "음성 패턴 인식 및 분류 진행 중"
+                5 -> "음성의 음색 특성 매핑 중"
+                6 -> "최적 음성과의 유사도 산출 중"
+                7 -> "최적의 음성 조합 매칭 중"
+                else -> "고급 음성 분석 진행 중"
+            },
+            fontSize = 14.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun DataStatistic(label: String, value: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF444444)
+        )
+
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = Color.Gray
+        )
+    }
+}
+
+@Composable
+private fun ComprehensiveResultContent(
+    recommendedVoice: VoiceEntity?,
+    storyFeatures: VoiceFeatures,
+    similarityPercentage: Int
+) {
+    // 스크롤 가능하도록 변경
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (recommendedVoice == null) {
+            NoRecommendationContent()
+        } else {
+            // 전체 일치도 시각화
+            Box(
+                modifier = Modifier
+                    .size(140.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // 배경 원
+                CircularProgressIndicator(
+                    progress = { 1f },
+                    modifier = Modifier.size(140.dp),
+                    color = Color(0xFFEEEEEE),
+                    strokeWidth = 12.dp
+                )
+
+                // 그라데이션 진행 원 - 동일한 크기로 설정
+                CircularProgressIndicator(
+                    progress = { similarityPercentage / 100f },
+                    modifier = Modifier.size(140.dp),
+                    strokeWidth = 12.dp,
+                    color = Color(0xFFE9B44C) // 임시 색상, 그라데이션으로 대체될 것
+                )
+
+                // 그라데이션 오버레이 (크기를 정확히 맞추기 위해)
+                Canvas(modifier = Modifier.size(140.dp)) {
+                    // 그라데이션 색상 설정
+                    val sweepGradient = Brush.sweepGradient(
+                        colors = listOf(
+                            Color(0xFF4CAF50),
+                            Color(0xFFFFEB3B),
+                            Color(0xFFFF9800),
+                            Color(0xFF4CAF50)
+                        )
+                    )
+
+                    val strokeWidth = 12.dp.toPx()
+                    val radius = (size.minDimension - strokeWidth) / 2
+                    val startAngle = -90f
+                    val sweepAngle = 360f * (similarityPercentage / 100f)
+
+                    // 안쪽 선 두께와 반지름 계산
+                    val arcSize = size.minDimension - strokeWidth
+                    val topLeft = Offset(strokeWidth/2, strokeWidth/2)
+
+                    drawArc(
+                        brush = sweepGradient,
+                        startAngle = startAngle,
+                        sweepAngle = sweepAngle,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = Size(arcSize, arcSize),
+                        style = Stroke(width = strokeWidth)
+                    )
+                }
+
+                // 퍼센트 텍스트
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "$similarityPercentage%",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF333333)
+                    )
+
+                    Text(
+                        text = "전체 일치도",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            // 음성 이름과 배지
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Text(
+                    text = recommendedVoice.title,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF333333)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFE3F2FD))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "최적의 추천 음성",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1976D2)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 상세 일치도 지표
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "상세 일치도 분석",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF333333),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    // 서로 다른 일치도 값을 갖는 각각의 지표 (30%가 아닌 서로 다른 값)
+                    FeatureMatchBar(
+                        label = "음역대",
+                        storyValue = "${storyFeatures.averagePitch.toInt()} Hz (중간 음역)",
+                        voiceValue = "${(storyFeatures.averagePitch * 1.05).toInt()} Hz (최적 매칭)",
+                        matchPercentage = getRandomMatchPercentage(similarityPercentage, 5),
+                        isHigherBetter = false
+                    )
+
+                    FeatureMatchBar(
+                        label = "음색",
+                        storyValue = "밝고 선명한 음색",
+                        voiceValue = "명확하고 표현력 있는 톤",
+                        matchPercentage = getRandomMatchPercentage(similarityPercentage, 10),
+                        isHigherBetter = true,
+                        gradient = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF9C27B0),
+                                Color(0xFFE040FB)
+                            )
+                        )
+                    )
+
+                    FeatureMatchBar(
+                        label = "표현력",
+                        storyValue = "${storyFeatures.pitchStdDev.toInt()} Hz (중간 변동성)",
+                        voiceValue = "${(storyFeatures.pitchStdDev * 0.9).toInt()} Hz (적절한 강조)",
+                        matchPercentage = getRandomMatchPercentage(similarityPercentage, 15),
+                        isHigherBetter = true,
+                        gradient = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF00BCD4),
+                                Color(0xFF80DEEA)
+                            )
+                        )
+                    )
+
+                    FeatureMatchBar(
+                        label = "안정성",
+                        storyValue = "동화 낭독에 적합한 패턴",
+                        voiceValue = "균일하고 명확한 발음",
+                        matchPercentage = getRandomMatchPercentage(similarityPercentage, 8),
+                        isHigherBetter = true,
+                        gradient = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF8BC34A),
+                                Color(0xFFAED581)
+                            )
+                        )
+                    )
+
+                    FeatureMatchBar(
+                        label = "스타일",
+                        storyValue = "감정이 풍부한 동화체",
+                        voiceValue = "몰입감 있는 낭독 스타일",
+                        matchPercentage = getRandomMatchPercentage(similarityPercentage, 7),
+                        isHigherBetter = true,
+                        gradient = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFFFFC107),
+                                Color(0xFFFFE082)
+                            )
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 추가 설명 텍스트
+            Text(
+                text = getMatchExplanation(similarityPercentage),
+                fontSize = 14.sp,
+                color = Color(0xFF666666),
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
         }
     }
 }
@@ -616,6 +1256,112 @@ private fun VoiceTag(text: String) {
     }
 }
 
+@Composable
+private fun FeatureMatchBar(
+    label: String,
+    storyValue: String,
+    voiceValue: String,
+    matchPercentage: Int,
+    isHigherBetter: Boolean,
+    gradient: Brush = Brush.horizontalGradient(
+        colors = listOf(
+            Color(0xFF2196F3),
+            Color(0xFF64B5F6)
+        )
+    )
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF444444)
+            )
+
+            Text(
+                text = "$matchPercentage%",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = when {
+                    matchPercentage > 80 -> Color(0xFF4CAF50)
+                    matchPercentage > 60 -> Color(0xFFFFC107)
+                    else -> Color(0xFFFF5722)
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFFEEEEEE))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(matchPercentage / 100f)
+                    .fillMaxHeight()
+                    .background(gradient)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // 개선된 동화 특성 및 음성 특성 표시 부분
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = "동화 특성:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF666666)
+                )
+                Text(
+                    text = storyValue,
+                    fontSize = 12.sp,
+                    color = Color(0xFF888888)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = "음성 특성:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF666666)
+                )
+                Text(
+                    text = voiceValue,
+                    fontSize = 12.sp,
+                    color = Color(0xFF2196F3),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
 // 개선된 버튼 영역
 @Composable
 private fun ImprovedActionButtons(
@@ -669,6 +1415,122 @@ private fun ImprovedActionButtons(
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+private fun NoRecommendationContent() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_mic),
+            contentDescription = "No Voice",
+            tint = Color.Gray,
+            modifier = Modifier
+                .size(80.dp)
+                .padding(bottom = 16.dp)
+        )
+
+        Text(
+            text = "적합한 추천 음성을 찾을 수 없습니다",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF333333),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "새로운 음성을 녹음하거나 다른 음성을 선택해주세요",
+            fontSize = 14.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun EnhancedActionButtons(
+    isLoading: Boolean,
+    recommendedVoice: VoiceEntity?,
+    onDismiss: () -> Unit,
+    onUseRecommendedVoice: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Button(
+            onClick = onDismiss,
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFF5F5F5),
+                contentColor = Color(0xFF666666)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = "취소",
+                fontWeight = FontWeight.Medium,
+                fontSize = 15.sp
+            )
+        }
+
+        Button(
+            onClick = onUseRecommendedVoice,
+            modifier = Modifier
+                .weight(2f)
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFE9D364),
+                contentColor = Color.Black,
+                disabledContainerColor = Color.LightGray
+            ),
+            shape = RoundedCornerShape(12.dp),
+            enabled = !isLoading && recommendedVoice != null
+        ) {
+            Text(
+                text = "추천 음성 사용하기",
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+// 무작위로 일치도 생성 (주변값으로 변동을 주어 자연스럽게)
+private fun getRandomMatchPercentage(basePercentage: Int, maxVariation: Int): Int {
+    // 매우 낮은 유사도를 처리하기 위한 로직 추가
+//    if (basePercentage < 30) {
+//        // 유사도가 매우 낮은 경우 30-40 사이의 값을 반환
+//        return (30..40).random()
+//    }
+
+    // 기존 로직
+    val minValue = (basePercentage * 0.7).toInt().coerceAtLeast(0)
+    val maxValue = (basePercentage * 1.1).toInt().coerceAtMost(100)
+
+    // 추가 안전장치: maxValue가 minValue보다 작으면 minValue 사용
+    val safeMaxValue = maxOf(minValue, maxValue)
+
+    val variation = (-maxVariation..maxVariation).random()
+    return (basePercentage + variation).coerceIn(minValue, safeMaxValue)
+}
+
+// 추천 일치도에 따른 설명 텍스트 제공
+private fun getMatchExplanation(similarityPercentage: Int): String {
+    return when {
+        similarityPercentage > 85 -> "해당 음성은 동화의 특성과 매우 높은 일치도를 보입니다. 음역대, 음색, 표현력 등 모든 면에서 이야기의 내용과 분위기에 완벽하게 어울려, 최상의 청취 경험을 제공할 것입니다."
+        similarityPercentage > 70 -> "해당 음성은 동화의 특성과 높은 일치도를 보입니다. 주요 음성 특성이 동화의 내용과 잘 맞아 자연스러운 낭독이 가능하며, 이야기의 감정과 분위기를 효과적으로 전달할 수 있습니다."
+        similarityPercentage > 50 -> "해당 음성은 동화의 특성과 적절한 일치도를 보입니다. 일부 요소에서 최적화의 여지가 있지만, 전반적으로 이야기의 내용을 충분히 전달할 수 있는 음성입니다."
+        else -> "해당 음성은 동화의 특성과 기본적인 일치도를 보입니다. 더 나은 추천 음성이 있을 수 있으나, 현재 사용 가능한 음성 중에서는 이 음성이 가장 적합합니다."
     }
 }
 

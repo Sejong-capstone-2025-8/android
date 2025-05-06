@@ -380,7 +380,7 @@ fun GeneratedStoryScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .height(20.dp),
+                .height(16.dp),
             colors = SliderDefaults.colors(
                 thumbColor = Color(0xFFE9D364),
                 activeTrackColor = Color(0xFFE9D364),
@@ -608,77 +608,78 @@ fun GeneratedStoryScreen(
                     }
                 )
             }
-        }
+            // BGM 음량 조절 슬라이더
+            Column(
+                modifier = Modifier.weight(1f)
 
-        // BGM 음량 조절 슬라이더
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 6.dp)
-        ) {
-            Text(
-                text = "배경음 음량 조절",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.DarkGray
-            )
-            // 커스텀 슬라이더 크기 설정
-            Slider(
-                value = bgmVolume,
-                onValueChange = { newVolume ->
-                    generatedStoryViewModel.setBackgroundMusicVolume(newVolume)
-                },
-                valueRange = 0f..1f,
-                steps = 8,
-                modifier = Modifier
-                    .fillMaxWidth(1f)
-                    .height(24.dp)
-                    .padding(top = 8.dp)
-                    .align(Alignment.CenterHorizontally),
-                // 슬라이더 커스텀 설정
-                colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFFAA8866),
-                    activeTrackColor = Color(0xFF3D5AFE),
-                    inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
-                ),
-                // 트랙과 썸 크기 조정을 위한 설정
-                thumb = {
-                    // 커스텀 썸 (더 크게 설정)
-                    Box(
-                        modifier = Modifier
-                            .height(20.dp)
-                            .width(5.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFFC000))
-                    )
-                },
-                track = { state ->
-                    // 커스텀 트랙 (더 두껍게 설정)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp) // 트랙 높이를 8dp로 설정
-                            .clip(RoundedCornerShape(4.dp))
-                    ) {
-                        // 비활성 부분
+            ) {
+                Text(
+                    text = "배경음 음량 조절",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.DarkGray
+                )
+                // 커스텀 슬라이더 크기 설정
+                Slider(
+                    value = bgmVolume,
+                    onValueChange = { newVolume ->
+                        generatedStoryViewModel.setBackgroundMusicVolume(newVolume)
+                    },
+                    valueRange = 0f..1f,
+                    steps = 8,
+                    modifier = Modifier
+                        .fillMaxWidth(1f)
+                        .height(8.dp)
+                        .padding(top = 8.dp),
+                    // 슬라이더 커스텀 설정
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFAA8866),
+                        activeTrackColor = Color(0xFF3D5AFE),
+                        inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
+                    ),
+                    // 트랙과 썸 크기 조정을 위한 설정
+                    thumb = {
+                        // 커스텀 썸 (더 크게 설정)
+                        Box(
+                            modifier = Modifier
+                                .height(20.dp)
+                                .width(5.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFC000))
+                        )
+                    },
+                    track = { state ->
+                        // 커스텀 트랙 (더 두껍게 설정)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(8.dp)
-                                .background(Color.LightGray.copy(alpha = 0.7f))
-                        )
-                        // 활성 부분
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(state.value)
-                                .height(8.dp)
-                                .background(Color(0xFF3D5AFE))
-                        )
+                                .height(8.dp) // 트랙 높이를 8dp로 설정
+                                .clip(RoundedCornerShape(4.dp))
+                        ) {
+                            // 비활성 부분
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .background(Color.LightGray.copy(alpha = 0.7f))
+                            )
+                            // 활성 부분
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(state.value)
+                                    .height(8.dp)
+                                    .background(Color(0xFF3D5AFE))
+                            )
+                        }
                     }
-                }
-            )
+                )
 
+            }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+
 
         // 기능 버튼 영역 (목소리 선택, 배경음 설정, 목소리 추천)
         Row(
