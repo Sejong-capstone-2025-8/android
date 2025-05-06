@@ -47,6 +47,11 @@ data class VoiceRecommendationState(
 
 class GeneratedStoryViewModel : ViewModel() {
 
+    private val _playbackSpeed = MutableStateFlow(1.0f)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
+    private val _pitch = MutableStateFlow(1.0f)
+    val pitch: StateFlow<Float> = _pitch.asStateFlow()
 
     private val _voiceListState = MutableStateFlow(VoiceListState())
     val voiceListState: StateFlow<VoiceListState> = _voiceListState.asStateFlow()
@@ -88,6 +93,30 @@ class GeneratedStoryViewModel : ViewModel() {
         val voices: List<VoiceEntity> = emptyList(),
         val error: String? = null
     )
+
+    // 속도 설정 함수
+    fun setPlaybackSpeed(speed: Float) {
+        viewModelScope.launch {
+            ttsService?.setPlaybackSpeed(speed)?.let { success ->
+                if (success) {
+                    _playbackSpeed.value = speed
+                    Log.d("GeneratedStoryViewModel", "Playback speed set: $speed")
+                }
+            }
+        }
+    }
+
+    // 피치 설정 함수
+    fun setPitch(newPitch: Float) {
+        viewModelScope.launch {
+            ttsService?.setPitch(newPitch)?.let { success ->
+                if (success) {
+                    _pitch.value = newPitch
+                    Log.d("GeneratedStoryViewModel", "Pitch set: $newPitch")
+                }
+            }
+        }
+    }
 
     fun loadCloneVoices(context: Context) {
         viewModelScope.launch {

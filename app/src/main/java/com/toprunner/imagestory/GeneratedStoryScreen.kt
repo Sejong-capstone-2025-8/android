@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -52,6 +53,11 @@ fun GeneratedStoryScreen(
     generatedStoryViewModel: GeneratedStoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     fairyTaleViewModel: FairyTaleViewModel? = null
 ) {
+
+    // 상태 값 수집
+    val playbackSpeed by generatedStoryViewModel.playbackSpeed.collectAsState()
+    val pitch by generatedStoryViewModel.pitch.collectAsState()
+
     var showVoiceSelectionDialog by remember { mutableStateOf(false) }
     val voiceListState by generatedStoryViewModel.voiceListState.collectAsState()
 
@@ -471,6 +477,138 @@ fun GeneratedStoryScreen(
                 )
             }
         }
+        // 속도 및 피치 조절 슬라이더 - 가로로 나란히 배치
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 속도 조절 슬라이더
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "낭독 속도: ${String.format("%.1f", playbackSpeed)}x",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.DarkGray
+                )
+
+                Slider(
+                    value = playbackSpeed,
+                    onValueChange = { generatedStoryViewModel.setPlaybackSpeed(it) },
+                    valueRange = 0.5f..2.0f,
+                    steps = 15, // 0.1 단위로 조절 가능: (2.0-0.5)/0.1 = 15
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .padding(top = 8.dp),
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFAA8866),
+                        activeTrackColor = Color(0xFF3D5AFE),
+                        inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
+                    ),
+                    thumb = {
+                        Box(
+                            modifier = Modifier
+                                .height(20.dp)
+                                .width(5.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFC000))
+                        )
+                    },
+                    track = { state ->
+                        // 커스텀 트랙 (더 두껍게 설정)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp) // 트랙 높이를 8dp로 설정
+                                .clip(RoundedCornerShape(4.dp))
+                        ) {
+                            // 비활성 부분
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .background(Color.LightGray.copy(alpha = 0.7f))
+                            )
+                            val normalizedValue = (state.value - 0.5f) / (2.0f - 0.5f)
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(normalizedValue)
+                                    .height(8.dp)
+                                    .background(Color(0xFF3D5AFE))
+                            )
+                        }
+                    }
+                )
+            }
+
+            // 피치 조절 슬라이더
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "음의 높낮이: ${String.format("%.1f", pitch)}x",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.DarkGray
+                )
+
+                Slider(
+                    value = pitch,
+                    onValueChange = { generatedStoryViewModel.setPitch(it) },
+                    valueRange = 0.5f..2.0f,
+                    steps = 15, // 0.1 단위로 조절 가능: (2.0-0.5)/0.1 = 15
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .padding(top = 8.dp),
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFAA8866),
+                        activeTrackColor = Color(0xFF3D5AFE),
+                        inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
+                    ),
+                    thumb = {
+                        Box(
+                            modifier = Modifier
+                                .height(20.dp)
+                                .width(5.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFC000))
+                        )
+                    },
+                    track = { state ->
+                        // 커스텀 트랙 (더 두껍게 설정)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp) // 트랙 높이를 8dp로 설정
+                                .clip(RoundedCornerShape(4.dp))
+                        ) {
+                            // 비활성 부분
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .background(Color.LightGray.copy(alpha = 0.7f))
+                            )
+                            // 활성 부분
+                            val normalizedValue = (state.value - 0.5f) / (2.0f - 0.5f)
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(normalizedValue)
+                                    .height(8.dp)
+                                    .background(Color(0xFF3D5AFE))
+                            )
+                        }
+                    }
+                )
+            }
+        }
 
         // BGM 음량 조절 슬라이더
         Column(
@@ -500,7 +638,7 @@ fun GeneratedStoryScreen(
                 // 슬라이더 커스텀 설정
                 colors = SliderDefaults.colors(
                     thumbColor = Color(0xFFAA8866),
-                    activeTrackColor = Color(0xFFAA8866),
+                    activeTrackColor = Color(0xFF3D5AFE),
                     inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
                 ),
                 // 트랙과 썸 크기 조정을 위한 설정
@@ -534,7 +672,7 @@ fun GeneratedStoryScreen(
                             modifier = Modifier
                                 .fillMaxWidth(state.value)
                                 .height(8.dp)
-                                .background(Color(0xFFAA8866))
+                                .background(Color(0xFF3D5AFE))
                         )
                     }
                 }

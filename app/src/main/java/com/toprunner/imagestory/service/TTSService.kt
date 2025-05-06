@@ -2,6 +2,7 @@ package com.toprunner.imagestory.service
 
 import android.content.Context
 import android.media.MediaPlayer
+import android.media.PlaybackParams
 import android.util.Log
 import com.toprunner.imagestory.BuildConfig
 import com.toprunner.imagestory.data.entity.VoiceEntity
@@ -21,6 +22,8 @@ class TTSService(private val context: Context) {
     private var currentAudioPath: String? = null
     private var currentPosition: Int = 0
     private var totalDuration: Int = 0
+    private var playbackSpeed = 1.0f  // 기본 속도 (1.0 = 정상)
+    private var pitch = 1.0f          // 기본 피치 (1.0 = 정상)
 
 
 
@@ -29,6 +32,49 @@ class TTSService(private val context: Context) {
         private val API_KEY = BuildConfig.ELEVENLABS_API_KEY
         private const val TAG = "TTSService"
     }
+
+    // 속도 설정 함수
+    fun setPlaybackSpeed(speed: Float): Boolean {
+        return try {
+            playbackSpeed = speed.coerceIn(0.5f, 2.0f) // 0.5배속 ~ 2배속으로 제한
+
+            mediaPlayer?.let { player ->
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    val params = player.playbackParams
+                    params.speed = playbackSpeed
+                    player.playbackParams = params
+                    return true
+                }
+            }
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting playback speed: ${e.message}", e)
+            false
+        }
+    }
+
+    // 피치 설정 함수
+    fun setPitch(newPitch: Float): Boolean {
+        return try {
+            pitch = newPitch.coerceIn(0.5f, 2.0f) // 0.5 ~ 2.0으로 제한
+
+            mediaPlayer?.let { player ->
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    val params = player.playbackParams
+                    params.pitch = pitch
+                    player.playbackParams = params
+                    return true
+                }
+            }
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting pitch: ${e.message}", e)
+            false
+        }
+    }
+
+    fun getPlaybackSpeed(): Float = playbackSpeed
+    fun getPitch(): Float = pitch
 
     suspend fun generateVoice(text: String, voiceId: Long): ByteArray = withContext(Dispatchers.IO) {
         try {
@@ -144,6 +190,15 @@ class TTSService(private val context: Context) {
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(audioPath)
                 prepare()
+
+                // 안드로이드 M(API 23) 이상에서 속도 및 피치 설정
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    val params = PlaybackParams()
+                    params.speed = playbackSpeed
+                    params.pitch = pitch
+                    playbackParams = params
+                }
+
                 setOnCompletionListener {
                     this@TTSService.currentPosition = 0
                     release()
