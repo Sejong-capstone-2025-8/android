@@ -71,8 +71,8 @@ class VoiceFeaturesUtil {
     fun calculateSimilarity(features1: VoiceFeatures, features2: VoiceFeatures): Double {
         try {
             // 피치 유사도 계산 (표준화된 유클리드 거리)
-            val pitchDiff = (features1.averagePitch - features2.averagePitch).pow(2) / 100.0 +
-                    (features1.pitchStdDev - features2.pitchStdDev).pow(2) / 25.0
+            val pitchDiff = (features1.averagePitch - features2.averagePitch).pow(2) / 400.0 +
+                    (features1.pitchStdDev - features2.pitchStdDev).pow(2) / 100.0
             val pitchDistance = sqrt(pitchDiff)
 
             // MFCC 유사도 계산 (코사인 유사도로 확장 가능)
@@ -88,17 +88,17 @@ class VoiceFeaturesUtil {
                 for (i in 0 until minLength) {
                     sumSquaredDiff += (mfcc1[i] - mfcc2[i]).pow(2)
                 }
-                mfccDistance = sqrt(sumSquaredDiff) / minLength
+                mfccDistance = sqrt(sumSquaredDiff) / (minLength*2.0)
             }
 
             // 피치와 MFCC 유사도 조합 (가중치 조정 가능)
-            val combinedDistance = pitchDistance * 0.7 + mfccDistance * 0.3
+            val combinedDistance = pitchDistance * 0.6 + mfccDistance * 0.2
 
             // 거리를 유사도로 변환 (0.0~1.0, 1.0이 가장 유사)
-            return 1.0 / (1.0 + combinedDistance)
+            return 0.45 + (0.55 / (1.0 + combinedDistance*1.5))
         } catch (e: Exception) {
             Log.e(TAG, "Error calculating similarity: ${e.message}", e)
-            return 0.5 // 기본 유사도
+            return 0.7 // 기본 유사도
         }
     }
 
