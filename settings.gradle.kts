@@ -16,6 +16,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            name = "TarsosDSP"
+            url = uri("https://mvn.0110.be/releases")
+        }
+
 
     }
 }

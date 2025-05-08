@@ -27,19 +27,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val gptKey        = localProperties.getProperty("gpt_api_key")        ?: ""
-        val elevenLabsKey = localProperties.getProperty("elevenlabs_api_key") ?: ""
-
-        buildConfigField(
-            "String",
-            "GPT_API_KEY",
-            "\"$gptKey\""
-        )
-        buildConfigField(
-            "String",
-            "ELEVENLABS_API_KEY",
-            "\"$elevenLabsKey\""
-        )
+        buildConfigField("String", "ELEVENLABS_API_KEY", "\"${localProperties.getProperty("elevenlabs_api_key")}\"")
+        buildConfigField("String", "GPT_API_KEY", "\"${localProperties.getProperty("gpt_api_key")}\"")
     }
 
     buildTypes {
@@ -65,6 +54,10 @@ android {
 }
 
 dependencies {
+    //tarsosDSP
+//    implementation("be.tarsos.dsp:core:2.5")
+//    implementation("be.tarsos.dsp:jvm:2.5")
+    implementation ("com.github.st-h:TarsosDSP:2.4.1")
 
     implementation("androidx.appcompat:appcompat:1.7.0") // Example
     implementation("com.google.android.material:material:1.12.0")
@@ -90,6 +83,7 @@ dependencies {
     implementation("androidx.room:room-ktx:2.7.0")
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.androidx.media3.common.ktx)
     kapt("androidx.room:room-compiler:2.7.0")
 
     // ViewModel & LiveData
@@ -106,9 +100,9 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
 
     implementation(platform("androidx.compose:compose-bom:2025.03.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.ui:ui:1.6.7")
+    implementation("androidx.compose.ui:ui-graphics:1.6.7")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.6.7")
     implementation("androidx.compose.material3:material3")
 
     implementation("androidx.compose.material:material:1.7.8")
@@ -147,4 +141,6 @@ dependencies {
     implementation ("androidx.room:room-runtime:2.7.0")
     kapt ("androidx.room:room-compiler:2.7.0")
     implementation ("androidx.room:room-ktx:2.7.0")
+
+    implementation ("androidx.exifinterface:exifinterface:1.3.7")
 }

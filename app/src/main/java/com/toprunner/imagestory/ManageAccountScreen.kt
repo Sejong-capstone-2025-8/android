@@ -116,7 +116,7 @@ fun ManageAccountScreen(
                     }
             }
         }
-        }
+    }
 
 
     Column(
@@ -175,7 +175,7 @@ fun ManageAccountScreen(
             AccountInfoRow("유저네임", username)
             Spacer(modifier = Modifier.height(16.dp))
 
-                // 계정 생성 시간 (밀리초를 Date로 변환)
+            // 계정 생성 시간 (밀리초를 Date로 변환)
             val creationTime = it.metadata?.creationTimestamp?.let { timestamp ->
                 // Date 객체 생성
                 val date = java.util.Date(timestamp)
@@ -219,16 +219,15 @@ fun ManageAccountScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
         }
-        if (!isGoogleUser) {
-            Button(
-                onClick = { showDeleteDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("계정 삭제", fontSize = 16.sp, color = Color.White)
-            }
+        Button(
+            onClick = { showDeleteDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text("계정 삭제", fontSize = 16.sp, color = Color.White)
         }
+
         // 변경 다이얼로그
         if (showChangePwdDialog) {
             // 상태 변수
@@ -324,8 +323,8 @@ fun ManageAccountScreen(
                 dismissButton = {
                     TextButton(onClick = { showChangePwdDialog = false },
                         colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color.Black
-                    )) {
+                            contentColor = Color.Black
+                        )) {
                         Text("취소")
                     }
                 }

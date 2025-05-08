@@ -116,33 +116,48 @@
 ## 📱 스크린샷
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/9d911862-76d7-4ab3-ab17-965f53a5a54e" alt="앱 스크린샷" width="200"/>
     
-<img src="https://github.com/user-attachments/assets/71f0483c-01bb-4ba4-a637-9c815f09a5a9" width="200" alt="Screenshot_20250414_205808_Photos and videos">
+  <img src="https://github.com/user-attachments/assets/87bb410b-c94b-472d-87bf-b698e65349cd" alt="앱 스크린샷" width="150"/>
 
-<img src="https://github.com/user-attachments/assets/0362cf42-bc1c-4ed1-ae55-9531845884f3" width="200" alt="Screenshot_20250414_205839_ImageStory">
+  <img src="https://github.com/user-attachments/assets/47641307-924b-4ca9-bc2b-81d46f714486" alt="앱 스크린샷" width="150"/>
 
-<img src="https://github.com/user-attachments/assets/0f9726e4-b826-4f89-af43-9c73f4274331" width="200" alt="Screenshot_20250414_205846_ImageStory">
+  <img src="https://github.com/user-attachments/assets/21672d47-d60e-45c1-a792-4d003abea551" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/c1c5cbc9-9052-43e2-bc9f-6a2f19381173" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/3a913ae5-17e8-44e1-876f-9f12f0f5e992" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/f7da40da-3251-4067-9f66-f3baab66ce6d" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/f7d125af-5b9a-4a6c-a01d-a2fec3822cf1" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/74a068ed-aaff-4eb0-96db-c2eee40cb59c" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/b4f250f5-d5f0-46c2-81f3-2f6868549f1a" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/dfc3a378-8118-43c0-af49-e89983572ad7" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/40270ca2-d44f-47a7-844c-34ab438ea3a2" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/7dae30fe-780f-46d8-8cf0-16e206c43f3f" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/21d3abc0-db35-4f34-809b-ae92373ab577" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/32d9b810-541e-495c-8de7-d97e3b756a80" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/6fd2e9d9-e080-4e32-be97-8a61bf324657" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/2eab285f-91b7-4386-96d2-2e9d56468df1" alt="앱 스크린샷" width="150"/>
+  <img src="https://github.com/user-attachments/assets/56157754-2132-420b-bbb9-8a887b893d58" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/0f33f3e5-25c4-4368-b791-b8202a2892bb" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/1381088e-7699-402a-bdb9-22262a1d2011" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/2853211d-3ccc-4c15-8935-dbec1ed9232a" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/09e962bb-33ac-4193-b23d-235f42f14285" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/17c87abf-d1e2-42fc-abc2-c8dbd547a653" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/fc5eb18c-83c1-44f3-b2e0-19b67ea3bc92" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/e743a60c-6244-486b-9d20-9dd0fcf7ef44" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/31700f0b-96db-4eb0-82ed-3e61a69b1f50" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/72f31a9c-9ae3-462c-b0dc-39c451150814" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/799c8cd7-01c1-4802-acde-ba656291087c" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/bc8c4a51-1985-4ffd-8ef4-e37f9687b2d6" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/cb690b93-57d3-4be3-81c9-16dc7a732428" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/9cf5756d-1688-4e43-b75b-fc148237833b" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/a620d3bb-972b-4efb-8283-465290338020" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/82fde689-ee1e-4f9c-a5d5-5f96653bf137" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/a682d613-08b5-4873-9f6c-18d68f63e95b" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/a0a8ec23-530f-42e4-8454-b767b67b5e31" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/5407c307-bed8-4904-a0d3-8e14477e502c" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/ba1af9fe-dc32-4640-97b4-545ca88cf4f4" alt="앱 스크린샷" width="150"/>
+<img src="https://github.com/user-attachments/assets/aef55326-6b76-469d-a20f-98571d972cef" alt="앱 스크린샷" width="150"/>
 
-<img src="https://github.com/user-attachments/assets/d1e14e06-7eab-4452-bc1b-6ec7a6e6252e" width="200" alt="Screenshot_20250414_205959_ImageStory">
 
-<img src="https://github.com/user-attachments/assets/e74c9599-2ac7-4d49-9fff-8ec3e1ebe627" width="200" alt="Screenshot_20250414_210005_ImageStory">
-
-<img src="https://github.com/user-attachments/assets/97054fc8-3741-4fc9-8b0b-17fea0a217ef" width="200" alt="Screenshot_20250414_210009_ImageStory">
-
-<img src="https://github.com/user-attachments/assets/efafdfcc-704c-4b5f-9485-955b99dad491" width="200" alt="Screenshot_20250414_210013_Permission controller">
-
-<img src="https://github.com/user-attachments/assets/46bb961a-097a-4f77-af82-ccda1cba3b54" width="200" alt="Screenshot_20250414_210021_ImageStory">
-
-<img src="https://github.com/user-attachments/assets/900ebf17-b20c-4d44-a81a-9840140f2c32" width="200" alt="Screenshot_20250414_210043_ImageStory">
-
-<img src="https://github.com/user-attachments/assets/854c0527-ed3c-4858-9636-17b66c5c997e" width="200" alt="Screenshot_20250414_210050_ImageStory">
-
-<img src="https://github.com/user-attachments/assets/5ce1849f-2693-436a-b95d-f5649d4c4809" width="200" alt="Screenshot_20250414_210054_ImageStory">
-
-<img src="https://github.com/user-attachments/assets/cc971cda-9da2-4cfb-aa4e-6e2f8ca6ce6b" width="200" alt="Screenshot_20250414_210059_ImageStory">
-
-<img src="https://github.com/user-attachments/assets/9fad633b-8ab0-46fb-a3d5-c413db905800" width="200" alt="Screenshot_20250414_210102_ImageStory">
   
   
 </div>
@@ -165,7 +180,7 @@
 
 ## 📝 라이센스
 
-이 프로젝트는 MIT 라이센스 하에 배포될 예정입니다. 
+이 프로젝트는 GPL 라이센스 하에 배포될 예정입니다. 
 
 
 ---

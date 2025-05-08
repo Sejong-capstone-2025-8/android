@@ -73,6 +73,62 @@ class NetworkUtil {
         }
     }
 
+    /**
+     * 멀티파트 요청을 보내는 함수 (파일 업로드 등에 사용)
+     * @param url API 엔드포인트 URL
+     * @param headers HTTP 헤더 맵
+     * @param body 바이트 배열로 구성된 멀티파트 요청 본문
+     * @return API 응답 문자열
+     */
+
+    suspend fun sendMultipartRequest(
+        url: String,
+        headers: Map<String, String>,
+        body: ByteArray
+    ): String = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
+        try {
+            val urlObj = URL(url)
+            connection = (urlObj.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 300000 // 300초
+                readTimeout = 300000 // 300초
+                doOutput = true
+
+                // 헤더 설정
+                headers.forEach { (key, value) ->
+                    setRequestProperty(key, value)
+                }
+
+                // 요청 바디 전송
+                outputStream.use { os ->
+                    os.write(body)
+                    os.flush()
+                }
+            }
+
+            val responseCode = connection.responseCode
+            Log.d(TAG, "Multipart request response code: $responseCode")
+
+            if (responseCode in 200..299) {
+                // 성공 응답 읽기
+                connection.inputStream.bufferedReader().use { it.readText() }
+            } else {
+                // 오류 응답 읽기
+                val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                val errorMessage = "HTTP Error: $responseCode - $errorResponse"
+                Log.e(TAG, errorMessage)
+                throw Exception(errorMessage)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in multipart request: ${e.message}", e)
+            throw e
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+
     suspend fun downloadAudio(
         url: String,
         headers: Map<String, String>,

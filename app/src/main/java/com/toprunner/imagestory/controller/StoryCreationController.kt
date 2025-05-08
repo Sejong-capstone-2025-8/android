@@ -11,6 +11,7 @@ import com.toprunner.imagestory.repository.TextRepository
 import com.toprunner.imagestory.repository.VoiceRepository
 import com.toprunner.imagestory.service.GPTService
 import com.toprunner.imagestory.service.TTSService
+import com.toprunner.imagestory.util.ImageUtil
 import com.toprunner.imagestory.util.VoiceFeaturesUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,8 +32,18 @@ class StoryCreationController(private val context: Context) {
         try {
             Log.d(TAG, "Starting story creation with theme: $theme")
 
-            // 이미지 검증
-            if (!validateImage(image)) {
+            // 안전한 이미지 처리를 위한 코드 추가
+            val optimizedImage = try {
+                // 이미지 최적화
+                val imageUtil = ImageUtil()
+                imageUtil.compressImage(image)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error optimizing image: ${e.message}", e)
+                image // 원본 이미지를 폴백으로 사용
+            }
+
+            // 이미지 검증 - 확장된 검증
+            if (!validateImage(optimizedImage)) {
                 throw IllegalArgumentException("이미지가 동화 생성에 적합하지 않습니다.")
             }
 
@@ -99,6 +110,9 @@ class StoryCreationController(private val context: Context) {
 
             Log.d(TAG, "Fairy tale saved with ID: $fairyTaleId")
             fairyTaleId
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "메모리 부족 오류: ${e.message}", e)
+            throw IllegalStateException("이미지 처리 중 메모리 부족 오류가 발생했습니다. 더 작은 이미지를 사용해보세요.")
         } catch (e: Exception) {
             Log.e(TAG, "Error in story creation: ${e.message}", e)
             throw e
@@ -106,12 +120,24 @@ class StoryCreationController(private val context: Context) {
     }
 
     private fun validateImage(bitmap: Bitmap): Boolean {
-        // 이미지 크기 검증 (최소 크기 검사)
+        // 이미지 크기 검증 (최소/최대 크기 검사)
         if (bitmap.width < 100 || bitmap.height < 100) {
+            Log.e(TAG, "Image too small: ${bitmap.width}x${bitmap.height}")
             return false
         }
 
-        // 더 복잡한 이미지 검증 로직 추가 가능
+        if (bitmap.width > 4096 || bitmap.height > 4096) {
+            Log.e(TAG, "Image too large: ${bitmap.width}x${bitmap.height}")
+            return false
+        }
+
+        // 메모리 사용량 확인
+        val byteCount = bitmap.allocationByteCount
+        if (byteCount > 20 * 1024 * 1024) { // 20MB 이상
+            Log.e(TAG, "Image requires too much memory: ${byteCount / (1024 * 1024)}MB")
+            return false
+        }
+
         return true
     }
 
