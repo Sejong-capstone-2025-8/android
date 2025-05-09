@@ -473,6 +473,11 @@ class MainActivity : ComponentActivity() {
     // 동화 생성 시작
     // MainActivity.kt의 startStoryCreation 메서드 수정
     private fun startStoryCreation(navController: androidx.navigation.NavController) {
+        if (!NetworkUtil().isNetworkAvailable(this)) {
+            errorMessage = "인터넷 연결을 확인해주세요."
+            return
+        }
+
         if (capturedImageBitmap == null) {
             Toast.makeText(this, "사진을 찍거나 선택해주세요", Toast.LENGTH_SHORT).show()
             return
@@ -508,7 +513,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } catch (e: Exception) {
-                // UI 작업은 Main 스레드에서 수행
                 withContext(Dispatchers.Main) {
                     isLoading = false
                     Log.d("MainActivity", "errorMessage 에 세팅될 메시지: ${e.javaClass.simpleName} / ${e.message}")
