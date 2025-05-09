@@ -95,25 +95,49 @@ class TTSService(private val context: Context) {
                 "xi-api-key" to API_KEY
             )
 
-            // elevenlabsVoiceId 가져오기 - 수정된 부분
+            // elevenlabsVoiceId 가져오기
             val elevenlabsVoiceId = getElevenlabsVoiceId(voiceId, voiceEntity)
             Log.d(TAG, "Using ElevenLabs voice ID: $elevenlabsVoiceId")
+
 
             val requestBody = createRequestBody(text)
             val apiUrl = "$API_URL/$elevenlabsVoiceId"
 
-            val responseBytes = networkUtil.downloadAudio(apiUrl, headers, requestBody)
-            if (responseBytes.isEmpty()) {
-                Log.e(TAG, "Empty response from ElevenLabs API")
-                throw IllegalStateException("음성 생성에 실패했습니다: 응답이 비어있습니다.")
-            }
+            try {
+                val responseBytes = networkUtil.downloadAudio(apiUrl, headers, requestBody)
+                if (responseBytes.isEmpty()) {
+                    Log.e(TAG, "Empty response from ElevenLabs API")
+                    throw IllegalStateException("음성 생성에 실패했습니다: 응답이 비어있습니다.")
+                }
 
-            Log.d(TAG, "Successfully generated audio, size: ${responseBytes.size} bytes")
-            responseBytes
+                Log.d(TAG, "Successfully generated audio, size: ${responseBytes.size} bytes")
+                return@withContext responseBytes
+            } catch (e: Exception) {
+                // API 오류 발생 시 기본 음성(Rachel)으로 재시도
+                Log.e(TAG, "Error with voice ID: $elevenlabsVoiceId. Trying fallback voice. Error: ${e.message}")
+
+                // 기본 음성 ID로 재시도 (Rachel - 안정적인 음성)
+                val fallbackVoiceId = "21m00Tcm4TlvDq8ikWAM"
+                val fallbackApiUrl = "$API_URL/$fallbackVoiceId"
+
+                try {
+                    val fallbackResponse = networkUtil.downloadAudio(fallbackApiUrl, headers, requestBody)
+                    if (fallbackResponse.isNotEmpty()) {
+                        Log.d(TAG, "Fallback voice generation successful, size: ${fallbackResponse.size} bytes")
+                        return@withContext fallbackResponse
+                    }
+                } catch (fallbackError: Exception) {
+                    Log.e(TAG, "Fallback voice also failed: ${fallbackError.message}")
+                }
+
+                // 모든 시도가 실패하면 기본 오디오 반환
+                return@withContext generateDummyAudio(text.length)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error generating voice: ${e.message}", e)
             generateDummyAudio(text.length)
         }
+
     }
 
 
