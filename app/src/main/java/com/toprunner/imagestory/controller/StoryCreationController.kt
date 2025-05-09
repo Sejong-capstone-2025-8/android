@@ -54,6 +54,7 @@ class StoryCreationController(private val context: Context) {
                 "SF" -> "sf"
                 "공포" -> "horror"
                 "코미디" -> "comedy"
+                "비극" -> "tragedy"
                 else -> "fantasy" // 기본값
             }
 

@@ -55,7 +55,7 @@ fun HomeScreen(
     onGenerateStoryClicked: () -> Unit
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
-    val themeOptions = remember { listOf("판타지", "사랑", "SF", "공포", "코미디") }
+    val themeOptions = remember { listOf("판타지", "사랑", "SF", "공포", "코미디","비극") }
     val themeButtonText = selectedTheme ?: "테마"
 
     // 테마 다이얼로그에서 현재 선택된 테마를 기억하기 위한 변수
@@ -1023,6 +1023,11 @@ fun getThemeData(theme: String): ThemeInfo {
             color = Color(0xFFFFB74D),
             iconRes = R.drawable.ic_bookmark, // 적절한 아이콘으로 교체 필요
             description = "유머러스하고 재미있는 동화"
+        )
+        "비극" -> ThemeInfo(
+            color = Color(0xFF7986CB),
+            iconRes = R.drawable.ic_bookmark,
+            description = "슬프지만 깊은 교훈이 담긴 이야기"
         )
         else -> ThemeInfo(
             color = Color(0xFF9E9E9E),

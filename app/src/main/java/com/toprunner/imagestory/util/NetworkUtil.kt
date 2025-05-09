@@ -108,6 +108,7 @@ class NetworkUtil {
             }
 
             val responseCode = connection.responseCode
+
             Log.d(TAG, "Multipart request response code: $responseCode")
 
             if (responseCode in 200..299) {
@@ -120,6 +121,7 @@ class NetworkUtil {
                 Log.e(TAG, errorMessage)
                 throw Exception(errorMessage)
             }
+
         } catch (e: Exception) {
             Log.e(TAG, "Error in multipart request: ${e.message}", e)
             throw e
