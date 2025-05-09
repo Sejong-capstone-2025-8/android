@@ -26,9 +26,15 @@ class GPTService {
     // gpt api 요청용
     suspend fun generateStory(image: Bitmap, theme: String): String = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Generating story with theme: $theme")
+            Log.d(TAG, "다음의 테마로 동화를 생성 중: $theme")
+            Log.d(TAG, "원본 이미지 크기: ${image.width}x${image.height}")
+
             val base64Image = encodeImageToBase64(image)
+            Log.d(TAG, "Base64 encoded image length: ${base64Image.length}")
+
             val requestBody = createRequestBody(base64Image, theme)
+            Log.d(TAG, "Sending request to GPT API. URL: $API_URL")
+
             // 실제 API 호출 (실제 API URL과 헤더, API 키를 사용)
             val response = networkUtil.sendHttpRequest(
                 url = API_URL,
@@ -40,10 +46,35 @@ class GPTService {
                 body = requestBody
             )
             Log.d(TAG, "GPT API raw response: $response")
+
+            validateResponse(response) // 응답 검증 개선
+
             response
         } catch (e: Exception) {
             Log.e(TAG, "Error generating story: ${e.message}", e)
             generateErrorResponse(e.message ?: "Unknown error")
+        }
+    }
+
+    private fun validateResponse(response: String): Boolean {
+        try {
+            val jsonResponse = JSONObject(response)
+            val choices = jsonResponse.getJSONArray("choices")
+            if (choices.length() == 0) {
+                Log.w(TAG, "Empty choices array in response")
+                return false
+            }
+
+            val message = choices.getJSONObject(0).getJSONObject("message")
+            val content = message.optString("content", "")
+
+            // JSON 형식 확인
+            JSONObject(content.replace("```json", "").replace("```", "").trim())
+
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Invalid response format: ${e.message}")
+            return false
         }
     }
     suspend fun chatWithBot(userMessage: String, previousMessages: List<String> = emptyList()): String = withContext(Dispatchers.IO) {
@@ -133,11 +164,11 @@ class GPTService {
     }
 
 
-    fun encodeImageToBase64(bitmap: Bitmap): String {
+    fun encodeImageToBase64(bitmap: Bitmap, quality: Int = 90, maxDimension: Int = 1536): String {
         val baos = ByteArrayOutputStream()
         // 이미지 크기와 질 조정으로 API 요청 크기 제한 대응
-        val scaledBitmap = if (bitmap.width > 1024 || bitmap.height > 1024) {
-            val scaleRatio = 1024f / maxOf(bitmap.width, bitmap.height)
+        val scaledBitmap = if (bitmap.width > maxDimension || bitmap.height > maxDimension) {
+            val scaleRatio = maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height)
             val scaledWidth = (bitmap.width * scaleRatio).toInt()
             val scaledHeight = (bitmap.height * scaleRatio).toInt()
             bitmap.scale(scaledWidth, scaledHeight)
@@ -145,19 +176,20 @@ class GPTService {
             bitmap
         }
 
-        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 60, baos)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos)
         val imageBytes = baos.toByteArray()
         return Base64.encodeToString(imageBytes, Base64.DEFAULT)
     }
 
     private fun createRequestBody(base64Image: String, theme: String): String {
         val themePrompt = when (theme) {
-            "fantasy" -> "이 이미지를 바탕으로 한국어로 판타지 장르의 동화를 만들어주세요."
-            "love" -> "이 이미지를 바탕으로 한국어로 사랑에 관한 동화를 만들어주세요."
-            "sf" -> "이 이미지를 바탕으로 한국어로 공상과학(SF) 장르의 동화를 만들어주세요."
-            "horror" -> "이 이미지를 바탕으로 한국어로 무서운 요소가 있지만 아이들이 읽을 수 있는 약간 스릴 있는 동화를 만들어주세요."
-            "comedy" -> "이 이미지를 바탕으로 한국어로 유머러스하고 재미있는 동화를 만들어주세요."
-            else -> "이 이미지를 바탕으로 한국어로 어린이를 위한 동화를 만들어주세요."
+            "fantasy" -> "이미지를 정확하게 분석하고 이미지 정보를 바탕으로 한국어로 판타지 장르의 동화를 만들어주세요."
+            "love" -> "이미지를 정확하게 분석하고 이미지 정보를 바탕으로 한국어로 사랑에 관한 동화를 만들어주세요."
+            "sf" -> "이미지를 정확하게 분석하고 이미지 정보를 바탕으로 한국어로 공상과학(SF) 장르의 동화를 만들어주세요."
+            "horror" -> "이미지를 정확하게 분석하고 이미지 정보를 바탕으로 한국어로 무서운 요소가 있지만 아이들이 읽을 수 있는 약간 스릴 있는 동화를 만들어주세요."
+            "comedy" -> "이미지를 정확하게 분석하고 이미지 정보를 바탕으로 한국어로 유머러스하고 재미있는 동화를 만들어주세요."
+            "tragedy" -> "이미지를 정확하게 분석하고 이미지 정보를 바탕으로 한국어로 슬프지만 교훈이 있는 비극적인 동화를 만들어주세요."
+            else -> "이미지를 정확하게 분석하고 이미지 정보를 바탕으로 한국어로 어린이를 위한 동화를 만들어주세요."
         }
 
         // 동화 생성에 필요한 상세 프롬프트 작성 (JSON 출력 형식을 명시) - 검토 필요
@@ -168,6 +200,9 @@ class GPTService {
         1. 결과는 반드시 JSON 형식의 객체여야 합니다.
         2. JSON 객체는 다음 키들을 포함해야 합니다: "title" (문자열), "theme" (문자열, (fantasy,love,sf,horror,comedy 중 하나)), "text" (문자열), "averagePitch" (실수), "pitchStdDev" (실수), "mfccValues" (숫자 배열들의 배열, 각 내부 배열은 13개의 숫자를 포함).
         3. 추가적인 설명이나 부가 텍스트 없이 오직 JSON 객체만 출력해야 합니다.
+        4. 모든 숫자 값에는 표준 ASCII 문자만 사용하세요. 특히 마이너스 기호는 일반 하이픈 '-'를 사용하세요.
+        5. 동화 텍스트는 300 단어에서 500 단어 사이의 분량으로 작성해주세요.
+
 
         이미지 데이터: data:image/jpeg;base64,$base64Image
     """.trimIndent()
@@ -193,9 +228,9 @@ class GPTService {
 
 
         val requestObj = JSONObject().apply {
-            put("model", "gpt-4o")
+            put("model", "o4-mini")
             put("messages", messages)
-            put("max_tokens", 5000)
+            put("max_completion_tokens", 8000)
         }
 
         return requestObj.toString()

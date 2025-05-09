@@ -216,69 +216,41 @@ class VoiceRepository(private val context: Context) {
         try {
             Log.d(TAG, "Recommending voice for theme: $theme")
 
-            // 모든 음성 가져오기
-            val allVoices = voiceDao.getAllVoices()
+            // 1. 원하는 ElevenLabs 기본 목소리 ID 지정
+            // 예: "21m00Tcm4TlvDq8ikWAM"는 Rachel 목소리
+            val defaultElevenLabsVoiceId = "21m00Tcm4TlvDq8ikWAM" // Rachel
 
-            // 음성이 없으면 0 반환
-            if (allVoices.isEmpty()) {
-                Log.d(TAG, "No voices available for recommendation")
-                return@withContext 0L
-            }
+            // 2. 이 ElevenLabs 목소리 ID에 해당하는 로컬 Voice 엔티티를 찾거나 생성
+            var defaultVoiceId: Long = 0
 
-            // 테마 가중치 (어떤 테마에는 어떤 목소리가 더 어울림)
-            val themeWeights = mapOf(
-                "판타지" to mapOf("rachel" to 1.2, "elli" to 1.5, "bella" to 1.3, "antoni" to 0.8, "domi" to 1.0),
-                "사랑" to mapOf("rachel" to 1.4, "elli" to 1.2, "bella" to 1.5, "antoni" to 0.7, "domi" to 1.0),
-                "SF" to mapOf("rachel" to 0.8, "elli" to 1.0, "bella" to 0.9, "antoni" to 1.5, "domi" to 1.3),
-                "공포" to mapOf("rachel" to 0.7, "elli" to 0.8, "bella" to 0.9, "antoni" to 1.4, "domi" to 1.5),
-                "코미디" to mapOf("rachel" to 1.2, "elli" to 1.0, "bella" to 1.3, "antoni" to 1.4, "domi" to 1.5)
-            )
-
-            // 각 목소리별 점수 계산
-            val voiceScores = mutableMapOf<Long, Double>()
-
+            // 3. 기존 데이터베이스에서 해당 ElevenLabs ID를 가진 Voice 찾기
+            val allVoices = getAllVoices()
             for (voice in allVoices) {
                 try {
-                    // 음성 유형 추출
                     val attributeJson = JSONObject(voice.attribute)
-                    val voiceType = attributeJson.optString("voiceType", "custom")
-
-                    // 테마 가중치 적용
-                    val themeWeight = themeWeights[theme]?.get(voiceType) ?: 1.0
-
-                    // 기본 점수 (나중에 음성 특성 유사도 등을 활용해 향상 가능)
-                    var score = themeWeight
-
-                    // 사용자 정의 음성인 경우 특성 유사도 고려
-                    if (voiceType == "custom") {
-                        // 기본 가중치보다 낮게 설정 (기본 음성 모델이 더 최적화되어 있다고 가정)
-                        score = 0.8
+                    val elevenLabsId = attributeJson.optString("elevenlabsVoiceId", "")
+                    if (elevenLabsId == defaultElevenLabsVoiceId) {
+                        defaultVoiceId = voice.voice_id
+                        Log.d(TAG, "Found existing voice with ElevenLabs ID: $defaultVoiceId")
+                        break
                     }
-
-                    voiceScores[voice.voice_id] = score
-
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error processing voice ${voice.voice_id}: ${e.message}")
-                    // 오류 발생 시 기본 점수 적용
-                    voiceScores[voice.voice_id] = 0.5
+                    continue
                 }
             }
 
-            // 최고 점수 음성 찾기
-            val bestVoiceId = voiceScores.maxByOrNull { it.value }?.key ?: allVoices.first().voice_id
+            // 4. 없으면 해당 ElevenLabs 목소리를 가진 Voice 엔티티 생성 (옵션)
+            if (defaultVoiceId == 0L && allVoices.isNotEmpty()) {
+                // 없으면 첫 번째 음성 사용
+                defaultVoiceId = allVoices.first().voice_id
+                Log.d(TAG, "Using first available voice: $defaultVoiceId")
+            }
 
-            Log.d(TAG, "Recommended voice ID: $bestVoiceId")
-            bestVoiceId
-
+            return@withContext defaultVoiceId
         } catch (e: Exception) {
             Log.e(TAG, "Error recommending voice: ${e.message}", e)
-            // 오류 발생 시 기본값 반환 (가능하면 첫 번째 음성, 없으면 0)
-            val defaultVoice = try {
-                voiceDao.getAllVoices().firstOrNull()?.voice_id
-            } catch (e2: Exception) {
-                null
-            }
-            defaultVoice ?: 0L
+            // 오류 발생 시 기본값 반환
+            return@withContext 0L
         }
     }
     suspend fun updateVoiceTitle(voiceId: Long, newTitle: String): Boolean = withContext(Dispatchers.IO) {

@@ -575,6 +575,8 @@ fun generateVoiceDescription(features: VoiceFeatures): String {
         features.averagePitch > 230 && features.pitchStdDev < 90 -> "따뜻한 동화나 사랑"
         features.averagePitch < 160 && features.pitchStdDev < 50 -> "차분한 교훈적 이야기"
         features.averagePitch > 210 && features.pitchStdDev > 120 -> "흥미진진한 모험"
+        features.averagePitch < 130 && features.pitchStdDev > 70 -> "비극적이거나 깊은 감정의 이야기" // 비극 관련 내용 추가
+
         else -> "다양한 장르의"
     }
 
