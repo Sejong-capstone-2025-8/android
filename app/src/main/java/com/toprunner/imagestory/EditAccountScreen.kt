@@ -62,7 +62,7 @@ fun EditAccountScreen(navController: NavController) {
         // 프로필 사진 선택
         Box(
             modifier = Modifier
-                .size(100.dp)
+                .size(200.dp)
                 .clip(CircleShape)
                 .clickable { launcher.launch("image/*") },
             contentAlignment = Alignment.Center

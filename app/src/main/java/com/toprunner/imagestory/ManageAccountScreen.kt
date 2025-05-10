@@ -1,5 +1,6 @@
 package com.toprunner.imagestory
 
+import android.app.Activity
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -43,7 +44,10 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.toprunner.imagestory.data.database.AppDatabase
 import com.toprunner.imagestory.navigation.NavRoute
-
+import android.content.Context
+import android.content.Intent
+import android.os.Process
+import android.preference.PreferenceManager
 
 @Composable
 fun ManageAccountScreen(
@@ -95,6 +99,8 @@ fun ManageAccountScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     //  Google 로그인 여부
     val isGoogleUser = user.providerData.any { it.providerId == "google.com" }
+
+    var showInitializationDialog by remember { mutableStateOf(false) }
 
     val db = FirebaseFirestore.getInstance()
     val userId = firebaseAuth.currentUser?.uid
@@ -234,7 +240,18 @@ fun ManageAccountScreen(
         ) {
             Text("비밀번호 변경", fontSize = 16.sp)
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Button(
+            onClick = { showInitializationDialog = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.CenterHorizontally),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+            shape = RoundedCornerShape(8.dp),
+
+            ) {
+            Text("계정 초기화", fontSize = 16.sp, color = Color.White)
         }
 
         Button(
@@ -358,7 +375,7 @@ fun ManageAccountScreen(
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 title = { Text("계정 삭제") },
-                text = { Text("정말 계정을 삭제하시겠습니까? 삭제하면 복구할 수 없습니다.") },
+                text = { Text("정말 계정을 삭제하시겠습니까?\n삭제하면 복구할 수 없습니다.") },
                 confirmButton = {
                     TextButton(onClick = {
                         user.delete()
@@ -373,10 +390,51 @@ fun ManageAccountScreen(
                     }) { Text("삭제", color = Color.Red) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
+                    TextButton(onClick = { showDeleteDialog = false }) { Text("취소", color = Color.Red) }
                 }
             )
         }
+
+        val context = LocalContext.current
+
+        fun clearAppData(context: Context) {
+            context.filesDir?.deleteRecursively()
+            context.cacheDir?.deleteRecursively()
+
+            // ✅ Room 데이터베이스 삭제
+            context.deleteDatabase("fairy_tale_database")
+        }
+
+        fun restartApp(context: Context) {
+            val activity = context as? Activity ?: return
+            val intent = Intent(context, activity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+            activity.finish()
+            context.startActivity(intent)
+
+            // 완전한 프로세스 종료 후 재시작 효과
+            Process.killProcess(Process.myPid())
+        }
+
+        if (showInitializationDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("계정 초기화") },
+                text = { Text("정말 초기화 하시겠습니까?\n이후 삭제된 동화는 복구할 수 없습니다.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        clearAppData(context) // 내부 저장소 삭제
+                        showInitializationDialog = false
+                        restartApp(context)
+                    }) { Text("초기화", color = Color.Red) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showInitializationDialog = false }) { Text("취소", color = Color.Red) }
+                }
+            )
+        }
+
+
 //        // Button to go back
 //        Spacer(modifier = Modifier.height(8.dp))
 //        Button(
@@ -408,3 +466,4 @@ fun AccountInfoRow(label: String, value: String) {
         )
     }
 }
+
