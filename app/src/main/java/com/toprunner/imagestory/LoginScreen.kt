@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +16,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,12 +27,13 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.toprunner.imagestory.R
-import java.time.format.TextStyle
+import androidx.compose.ui.text.TextStyle  // 올바른 TextStyle 임포트
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onRegisterClick: () -> Unit,
     onGoogleLoginClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -76,78 +80,97 @@ fun LoginScreen(
         }
     }
 
+    val customFontFamily = FontFamily(
+        Font(R.font.font)  // OTF 파일을 참조
+    )
 
-//firebase 로그인 인증 과정
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("로그인", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("이메일") },singleLine = true,
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp))
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("비밀번호") },singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp),
-            visualTransformation = PasswordVisualTransformation(),
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        //이메일 로그인
-        Button(onClick = {
-            if (email.isBlank() || password.isBlank()) {
-                // 이메일 또는 비밀번호가 비어있을 경우
-                Toast.makeText(context, "아이디와 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show()
-            }else {
-                auth.signInWithEmailAndPassword(email, password)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            Toast.makeText(context, "로그인 성공", Toast.LENGTH_SHORT).show()
-                            onLoginSuccess()
-                        } else {
-                            Toast.makeText(context, "로그인 실패", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-            }
-        }, modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp))
-        {
-            Text("로그인")
-        }
-        //회원가입 버튼
-        TextButton(onClick = onRegisterClick) {
-            Text("회원가입",color = Color.Gray)
-
-        }
-        // 구글 로그인 버튼 추가
-        Spacer(modifier = Modifier.height(16.dp))
-        IconButton(
-            onClick = {
-                val signInIntent = googleSignInClient.signInIntent
-                signInLauncher.launch(signInIntent)
-            },
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(Color.LightGray)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.google_icon),
-                contentDescription = "구글 로그인",
-                modifier = Modifier.size(24.dp),
-                tint = Color.Unspecified
+
+            Text(
+                text = "로그인",
+                style = TextStyle(  // TextStyle 객체로 설정
+                    fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                    fontSize = 50.sp,               // 텍스트 크기 설정
+                    fontWeight = FontWeight.Medium, // 텍스트 굵기 설정
+                    color = Color.Black,            // 텍스트 색상
+                    letterSpacing = 1.5.sp,         // 글자 간격
+                    textAlign = TextAlign.Center   // 텍스트 정렬
+                )
             )
+            Spacer(modifier = Modifier.height(36.dp))
+
+
+            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("이메일") },singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp))
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("비밀번호") },singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp),
+                visualTransformation = PasswordVisualTransformation(),
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            //이메일 로그인
+            Button(onClick = {
+                if (email.isBlank() || password.isBlank()) {
+                    // 이메일 또는 비밀번호가 비어있을 경우
+                    Toast.makeText(context, "아이디와 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show()
+                }else {
+                    auth.signInWithEmailAndPassword(email, password)
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                Toast.makeText(context, "로그인 성공", Toast.LENGTH_SHORT).show()
+                                onLoginSuccess()
+                            } else {
+                                Toast.makeText(context, "로그인 실패", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                }
+            }, modifier = Modifier
+                .width(85.dp)
+                .height(56.dp),
+            ){
+                Text(
+                    text = "확인",
+                    style = TextStyle(  // TextStyle 객체로 설정
+                        fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                        fontSize = 22.sp,               // 텍스트 크기 설정
+                        fontWeight = FontWeight.Light, // 텍스트 굵기 설정
+                        color = Color.Black,            // 텍스트 색상
+                        letterSpacing = 1.5.sp,         // 글자 간격
+                        textAlign = TextAlign.Center   // 텍스트 정렬
+                    )
+                )
 
         }
+            Spacer(modifier = Modifier.height(24.dp))
+            IconButton(
+                onClick = {
+                    val signInIntent = googleSignInClient.signInIntent
+                    signInLauncher.launch(signInIntent)
+                },
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.LightGray)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.google_icon),
+                    contentDescription = "구글 로그인",
+                    modifier = Modifier.size(24.dp),
+                    tint = Color.Unspecified
+                )
+
+            }
     }
 }

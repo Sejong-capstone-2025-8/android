@@ -23,10 +23,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -37,6 +41,7 @@ import coil.compose.AsyncImage
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.toprunner.imagestory.data.database.AppDatabase
 import com.toprunner.imagestory.navigation.NavRoute
 
 
@@ -44,6 +49,7 @@ import com.toprunner.imagestory.navigation.NavRoute
 fun ManageAccountScreen(
     navController: NavController
 ) {
+
     val firebaseAuth = FirebaseAuth.getInstance()
     val user = firebaseAuth.currentUser
     // ❶ 새 프로필 URL을 담을 상태
@@ -118,6 +124,9 @@ fun ManageAccountScreen(
         }
     }
 
+    val customFontFamily = FontFamily(
+        Font(R.font.font)  // OTF 파일을 참조
+    )
 
     Column(
         modifier = Modifier
@@ -128,24 +137,29 @@ fun ManageAccountScreen(
         // Header section
         Text(
             text = "계정 정보 관리",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black,
-            modifier = Modifier.padding(bottom = 16.dp)
+            style = TextStyle(  // TextStyle 객체로 설정
+                fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                fontSize = 32.sp,               // 텍스트 크기 설정
+                fontWeight = FontWeight.Medium, // 텍스트 굵기 설정
+                color = Color.Black,            // 텍스트 색상
+                letterSpacing = 1.5.sp,         // 글자 간격
+                textAlign = TextAlign.Center   // 텍스트 정렬
+            )
         )
 // ---------------- Profile Picture Section ----------------
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp)
+                .height(300.dp)
+                .padding(top=10.dp)
         ) {
             if (photoUrlState != null) {
                 AsyncImage(
                     model = photoUrlState,
                     contentDescription = "Profile Image",
                     modifier = Modifier
-                        .size(100.dp)
+                        .size(250.dp)
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
@@ -155,24 +169,23 @@ fun ManageAccountScreen(
                     painter = painterResource(R.drawable.example_image),
                     contentDescription = "Default Profile Image",
                     modifier = Modifier
-                        .size(100.dp)
+                        .size(250.dp)
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
             }
         }
-        Spacer(modifier = Modifier.height(24.dp))
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // Display account info
         user?.let {
             // 이메일
-            AccountInfoRow("이메일", it.email ?: "이메일 없음")
+            AccountInfoRow("이메일 ", it.email ?: "이메일 없음")
             Spacer(modifier = Modifier.height(16.dp))
 
             // 유저네임 (Firestore에서 가져온 값)
-            AccountInfoRow("유저네임", username)
+            AccountInfoRow("유저네임 ", username)
             Spacer(modifier = Modifier.height(16.dp))
 
             // 계정 생성 시간 (밀리초를 Date로 변환)
@@ -190,41 +203,51 @@ fun ManageAccountScreen(
                 sdf.format(date)
             } ?: "생성 시간 없음"
 
-            AccountInfoRow("계정 등록 시간", creationTime)
+            AccountInfoRow("계정 등록 시간 ", creationTime)
             Spacer(modifier = Modifier.height(16.dp))
         }
 
         Spacer(modifier = Modifier.weight(1f))
+
         if (!isGoogleUser) {
-            // Button to update account details (Placeholder)
             Button(
                 onClick = {
-
                     navController.navigate(NavRoute.EditAccount.route)
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.CenterHorizontally),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text("계정 정보 수정", fontSize = 16.sp)
             }
+
         }
-        // 비밀번호 변경 버튼 구글 로그인은 x
+
         if (!isGoogleUser) {
             Button(
-                onClick = { showChangePwdDialog = true },
-                modifier = Modifier.fillMaxWidth(),
+            onClick = { showChangePwdDialog = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.CenterHorizontally),
                 shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("비밀번호 변경", fontSize = 16.sp)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+        ) {
+            Text("비밀번호 변경", fontSize = 16.sp)
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        }
+
         Button(
             onClick = { showDeleteDialog = true },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.CenterHorizontally),
+
+
             colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-            shape = RoundedCornerShape(8.dp)
-        ) {
+            shape = RoundedCornerShape(8.dp),
+
+            ) {
             Text("계정 삭제", fontSize = 16.sp, color = Color.White)
         }
 
@@ -354,15 +377,15 @@ fun ManageAccountScreen(
                 }
             )
         }
-        // Button to go back
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-            onClick = { navController.popBackStack() },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text("뒤로 가기", fontSize = 16.sp)
-        }
+//        // Button to go back
+//        Spacer(modifier = Modifier.height(8.dp))
+//        Button(
+//            onClick = { navController.popBackStack() },
+//            modifier = Modifier.fillMaxWidth(),
+//            shape = RoundedCornerShape(8.dp)
+//        ) {
+//            Text("뒤로 가기", fontSize = 16.sp)
+//        }
     }
 }
 

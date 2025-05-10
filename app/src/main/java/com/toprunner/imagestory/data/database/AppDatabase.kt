@@ -13,7 +13,7 @@ import com.toprunner.imagestory.data.entity.*
         VoiceEntity::class,
         ImageEntity::class,
         TextEntity::class,
-        MusicEntity::class
+        MusicEntity::class,
     ],
     version = 1,
     exportSchema = false

@@ -157,7 +157,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     bottomBar = {
                         // 로그인 화면과 회원가입 화면에서는 BottomNavBar를 숨기기
-                        if (navController.currentBackStackEntryAsState().value?.destination?.route !in listOf(NavRoute.Login.route, NavRoute.Register.route)) {
+                        if (navController.currentBackStackEntryAsState().value?.destination?.route !in listOf(NavRoute.firstScreen.route, NavRoute.Login.route, NavRoute.Register.route,NavRoute.ManageAccount.route)) {
                             BottomNavBar(navController = navController)
                         }
                     }
@@ -172,7 +172,7 @@ class MainActivity : ComponentActivity() {
                     ){
                         NavHost(
                         navController = navController,
-                        startDestination = NavRoute.Login.route,
+                        startDestination = NavRoute.firstScreen.route,
                         modifier = Modifier.fillMaxSize()
 
                     ) {
@@ -188,6 +188,19 @@ class MainActivity : ComponentActivity() {
                                 onGenerateStoryClicked = { startStoryCreation(navController) }
                             )
                         }
+
+                        // 첫 화면
+                        composable(NavRoute.firstScreen.route) {
+                            firstScreen(
+                                onLoginClick = {
+                                    navController.navigate(NavRoute.Login.route)
+                                },
+                                onRegisterClick = {
+                                    navController.navigate(NavRoute.Register.route)
+                                }
+                            )
+                        }
+
                         // 로그인 화면
                         composable(NavRoute.Login.route) {
                             LoginScreen(
@@ -195,9 +208,6 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(NavRoute.Home.route) {
                                         popUpTo(NavRoute.Login.route) { inclusive = true }
                                     }
-                                },
-                                onRegisterClick = {
-                                    navController.navigate(NavRoute.Register.route)
                                 },
                                 onGoogleLoginClick = {
                                     navController.navigate(NavRoute.Home.route) {
