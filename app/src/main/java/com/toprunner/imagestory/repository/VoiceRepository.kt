@@ -216,41 +216,47 @@ class VoiceRepository(private val context: Context) {
         try {
             Log.d(TAG, "Recommending voice for theme: $theme")
 
-            // 1. 원하는 ElevenLabs 기본 목소리 ID 지정
-            // 예: "21m00Tcm4TlvDq8ikWAM"는 Rachel 목소리
+            // 기본 ElevenLabs 음성 ID 지정
             val defaultElevenLabsVoiceId = "21m00Tcm4TlvDq8ikWAM" // Rachel
-
-            // 2. 이 ElevenLabs 목소리 ID에 해당하는 로컬 Voice 엔티티를 찾거나 생성
             var defaultVoiceId: Long = 0
 
-            // 3. 기존 데이터베이스에서 해당 ElevenLabs ID를 가진 Voice 찾기
+            // 기존 데이터베이스에서 해당 ElevenLabs ID를 가진 Voice 찾기
             val allVoices = getAllVoices()
-            for (voice in allVoices) {
-                try {
-                    val attributeJson = JSONObject(voice.attribute)
-                    val elevenLabsId = attributeJson.optString("elevenlabsVoiceId", "")
-                    if (elevenLabsId == defaultElevenLabsVoiceId) {
-                        defaultVoiceId = voice.voice_id
-                        Log.d(TAG, "Found existing voice with ElevenLabs ID: $defaultVoiceId")
-                        break
-                    }
-                } catch (e: Exception) {
-                    continue
-                }
-            }
 
-            // 4. 없으면 해당 ElevenLabs 목소리를 가진 Voice 엔티티 생성 (옵션)
-            if (defaultVoiceId == 0L && allVoices.isNotEmpty()) {
+            // 목소리가 있는 경우 처리
+            if (allVoices.isNotEmpty()) {
+                // 기존 로직대로 찾기...
+                for (voice in allVoices) {
+                    try {
+                        val attributeJson = JSONObject(voice.attribute)
+                        val elevenLabsId = attributeJson.optString("elevenlabsVoiceId", "")
+                        if (elevenLabsId == defaultElevenLabsVoiceId) {
+                            defaultVoiceId = voice.voice_id
+                            Log.d(TAG, "Found existing voice with ElevenLabs ID: $defaultVoiceId")
+                            break
+                        }
+                    } catch (e: Exception) {
+                        continue
+                    }
+                }
+
                 // 없으면 첫 번째 음성 사용
-                defaultVoiceId = allVoices.first().voice_id
-                Log.d(TAG, "Using first available voice: $defaultVoiceId")
+                if (defaultVoiceId == 0L) {
+                    defaultVoiceId = allVoices.first().voice_id
+                    Log.d(TAG, "Using first available voice: $defaultVoiceId")
+                }
+            } else {
+                // 음성이 하나도 없는 경우, 특별한 음성 ID를 반환
+                // -1은 기본 ElevenLabs 음성을 직접 사용하라는 신호로 사용
+                defaultVoiceId = -1L
+                Log.d(TAG, "No voices available, returning special ID -1 for default ElevenLabs voice")
             }
 
             return@withContext defaultVoiceId
         } catch (e: Exception) {
             Log.e(TAG, "Error recommending voice: ${e.message}", e)
-            // 오류 발생 시 기본값 반환
-            return@withContext 0L
+            // 오류 발생 시 기본값 -1 반환 (기본 ElevenLabs 음성 사용 신호)
+            return@withContext -1L
         }
     }
     suspend fun updateVoiceTitle(voiceId: Long, newTitle: String): Boolean = withContext(Dispatchers.IO) {

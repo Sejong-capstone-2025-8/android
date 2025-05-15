@@ -104,6 +104,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics:1.6.7")
     implementation("androidx.compose.ui:ui-tooling-preview:1.6.7")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material3:material3-window-size-class") // Optional window size classes
+
 
     implementation("androidx.compose.material:material:1.7.8")
     implementation("io.coil-kt:coil-compose:2.7.0")

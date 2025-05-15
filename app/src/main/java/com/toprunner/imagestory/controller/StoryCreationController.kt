@@ -263,15 +263,23 @@ class StoryCreationController(private val context: Context) {
 
             // 빈 오디오 데이터 처리
             if (audioData.isEmpty()) {
-                Log.w(TAG, "TTS returned empty audio data, using dummy audio")
-                return ByteArray(1000) // 임시 더미 데이터
+                Log.w(TAG, "TTS returned empty audio data, retrying with default voice")
+                // 기본 음성으로 다시 시도 (-1L)
+                return ttsService.generateVoice(storyText, -1L)
             }
 
             return audioData
         } catch (e: Exception) {
             Log.e(TAG, "Error generating audio: ${e.message}", e)
-            // 오류 발생 시 더미 오디오 데이터 반환
-            return ByteArray(1000)
+            // 기본 음성으로 다시 시도
+            try {
+                Log.d(TAG, "Retrying with default voice")
+                return ttsService.generateVoice(storyText, -1L)
+            } catch (fallbackError: Exception) {
+                Log.e(TAG, "Fallback to default voice also failed: ${fallbackError.message}")
+                // 오류 발생 시 더미 오디오 데이터 반환
+                return ByteArray(1000)
+            }
         }
     }
 

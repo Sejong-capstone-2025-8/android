@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -48,6 +49,7 @@ import com.toprunner.imagestory.ui.components.VoiceSelectionDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import com.toprunner.imagestory.ui.components.ChatbotDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +61,9 @@ fun GeneratedStoryScreen(
     fairyTaleViewModel: FairyTaleViewModel? = null,
     fairyTaleRepository: FairyTaleRepository
 ) {
+    val usedFallbackVoice by generatedStoryViewModel.usedFallbackVoice.collectAsState()
+    var showFallbackDialog by remember { mutableStateOf(false) }
+
 
     // 상태 값 수집
     val playbackSpeed by generatedStoryViewModel.playbackSpeed.collectAsState()
@@ -73,6 +78,12 @@ fun GeneratedStoryScreen(
     LaunchedEffect(storyId, bgmPath) {
         generatedStoryViewModel.loadStory(storyId, context, bgmPath)
     }
+    LaunchedEffect(usedFallbackVoice) {
+        if (usedFallbackVoice) {
+            showFallbackDialog = true
+        }
+    }
+
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
@@ -80,8 +91,6 @@ fun GeneratedStoryScreen(
     val localFairyTaleViewModel = fairyTaleViewModel ?: remember {
         FairyTaleViewModel(FairyTaleRepository(context))
     }
-
-    //챗봇 관련
     var userMessage by remember { mutableStateOf("") }
     var chatbotResponse by remember { mutableStateOf("") }
     var showChatbotDialog by remember { mutableStateOf(false) }
@@ -91,21 +100,52 @@ fun GeneratedStoryScreen(
     // GPTService 인스턴스 생성
     val gptService = GPTService()
     // 챗봇과 대화하는 함수
-    fun handleChatbot() {
+    fun handleChatbot(onComplete: () -> Unit) {
+        if (userMessage.isBlank()) {
+            // 빈 메시지인 경우 바로 로딩 종료 콜백
+            onComplete()
+            return
+        }
         if (userMessage.isNotBlank()) {
             // 대화 내역에 사용자 메시지 추가
-            conversationHistory.add("User: $userMessage")
+            conversationHistory.add("나: $userMessage")
             // GPT API 호출하여 답변을 받아옴
             CoroutineScope(Dispatchers.IO).launch {
-                val response = gptService.chatWithBot(userMessage, listOf(storyContent))
+                val response = gptService.chatWithBot(userMessage,conversationHistory,storyContent)
                 // 챗봇의 응답을 대화 내역에 추가
-                conversationHistory.add("Bot: $response")
+                conversationHistory.add("동화 챗봇: $response")
                 chatbotResponse = response
+                onComplete()
             }
         }
     }
+    // 다이얼로그를 열 때 인사 추가
+    LaunchedEffect(showChatbotDialog) {
+        if (showChatbotDialog && conversationHistory.isEmpty()) {
+            conversationHistory.add("동화 챗봇: 안녕하세요! 무엇을 도와드릴까요?")
+        }
+    }
+    /* // 동화 로드
+     LaunchedEffect(storyId) {
+         generatedStoryViewModel.loadStory(storyId, context)
+     }*/
+    var isLoading by remember { mutableStateOf(false) }
     // 챗봇 다이얼로그
     if (showChatbotDialog) {
+        ChatbotDialog(
+            conversationHistory = conversationHistory,
+            userMessage          = userMessage,
+            onMessageChange      = { userMessage = it },
+            isLoading            = isLoading,
+            onSend               = {
+                isLoading = true                         // 전송 직후 로딩 시작
+                handleChatbot {                         // handleChatbot 콜백 형태로 onComplete 추가
+                    isLoading = false                    // 응답 받으면 로딩 종료
+                }
+            },
+            onDismiss            = { showChatbotDialog = false }
+        )
+        /*
         AlertDialog(
             onDismissRequest = { showChatbotDialog = false },
             title = { Text("동화 챗봇") },
@@ -143,39 +183,45 @@ fun GeneratedStoryScreen(
                     Text("닫기")
                 }
             }
+        )*/
+    }
+
+    if (showFallbackDialog) {
+        AlertDialog(
+            onDismissRequest = { showFallbackDialog = false },
+            title = {
+                Text(
+                    "음성 변경 알림",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF3F2E20)
+                )
+            },
+            text = {
+                Text(
+                    "Elevenlabs 서버에 음성이 저장되어 있지 않습니다. 기본 음성으로 동화가 생성됩니다.",
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                    color = Color(0xFF5F4C40)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showFallbackDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE9D364))
+                ) {
+                    Text(
+                        "확인",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            containerColor = Color(0xFFFFFBF0),
+            shape = RoundedCornerShape(16.dp)
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFFFFBF0))
-    ) {
-        // 상단 헤더
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Text(
-                text = "Image Story",
-                modifier = Modifier.align(Alignment.Center),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
-            Text(
-                text = "뒤로",
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .clickable { navController.navigateUp() },
-                fontSize = 16.sp,
-                color = Color(0xFF9C8A54)
-            )
-        }
-
-
-    }
     // 뷰모델 상태 구독
     val storyState by generatedStoryViewModel.storyState.collectAsState()
     val isPlaying by generatedStoryViewModel.isPlaying.collectAsState()
@@ -369,564 +415,563 @@ fun GeneratedStoryScreen(
         }
     }
 
-    // 동화 로드
-    LaunchedEffect(storyId) {
-        generatedStoryViewModel.loadStory(storyId, context)
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFFFFBF0))
-    ) {
-        // 상단 헤더
-        Box(
+    Box(modifier = Modifier.fillMaxSize()){
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .fillMaxSize()
+                .background(Color(0xFFFFFBF0))
         ) {
-            Text(
-                text = "Image Story",
-                modifier = Modifier.align(Alignment.Center),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
-            Text(
-                text = "뒤로",
+            // 상단 헤더
+            Box(
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .clickable { navController.navigateUp() },
-                fontSize = 16.sp,
-                color = Color(0xFF9C8A54)
-            )
-        }
-
-        HorizontalDivider(
-            color = Color(0xFFE0E0E0),
-            thickness = 1.5.dp,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // 이미지 영역
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-        ) {
-            if (storyState.storyImage != null && !storyState.isLoading) {
-                Image(
-                    bitmap = storyState.storyImage!!.asImageBitmap(),
-                    contentDescription = "Story Image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Fit
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "Image Story",
+                    modifier = Modifier.align(Alignment.Center),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
                 )
-            } else {
+                Text(
+                    text = "뒤로",
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .clickable { navController.navigateUp() },
+                    fontSize = 16.sp,
+                    color = Color(0xFF9C8A54)
+                )
+            }
+
+            HorizontalDivider(
+                color = Color(0xFFE0E0E0),
+                thickness = 1.5.dp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // 이미지 영역
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                if (storyState.storyImage != null && !storyState.isLoading) {
+                    Image(
+                        bitmap = storyState.storyImage!!.asImageBitmap(),
+                        contentDescription = "Story Image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.LightGray),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (storyState.isLoading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFFE9D364)
+                            )
+                        } else {
+                            Text(
+                                text = "이미지 준비 중...",
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 제목 및 나레이터 정보
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = storyState.storyTitle.ifEmpty { "동화 제목" },
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "narrated by AI Voice",
+                    fontSize = 14.sp,
+                    color = Color(0xFFAA8866),
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            // 슬라이더 (드래그하여 재생 위치 이동)
+            Slider(
+                value = playbackProgress,
+                onValueChange = { newValue ->
+                    val newPositionMs = (newValue * totalDuration).toInt()
+                    generatedStoryViewModel.seekTo(newPositionMs)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .height(16.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFFE9D364),
+                    activeTrackColor = Color(0xFFE9D364),
+                    inactiveTrackColor = Color(0xFFE0E0E0)
+                ),
+                enabled = !storyState.isLoading
+            )
+
+            // 시간 정보
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = progressText,
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
+                Text(
+                    text = "$currentTimeText / $audioDurationText",
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
+            }
+
+            // 재생 컨트롤 버튼들
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 재생/일시정지 버튼
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.LightGray),
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE9D364))
+                        .clickable { generatedStoryViewModel.toggleAudioPlayback() },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (storyState.isLoading) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                        ),
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = Color.Black,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(24.dp))
+
+                // 정지 버튼
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE9D364))
+                        .clickable { generatedStoryViewModel.stopAudio() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_stop),
+                        contentDescription = "Stop",
+                        tint = Color.Black,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(24.dp))
+
+                // BGM 컨트롤 버튼
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF9ED8D8))
+                        .clickable {
+                            Log.d("GeneratedStoryScreen", "배경음 버튼 클릭")
+                            generatedStoryViewModel.toggleBackgroundMusic()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (isBgmPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                        ),
+                        contentDescription = if (isBgmPlaying) "BGM Pause" else "BGM Play",
+                        tint = Color.Black,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            // 속도 및 피치 조절 슬라이더 - 가로로 나란히 배치
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 속도 조절 슬라이더
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "낭독 속도: ${String.format("%.1f", playbackSpeed)}x",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.DarkGray
+                    )
+
+                    Slider(
+                        value = playbackSpeed,
+                        onValueChange = { generatedStoryViewModel.setPlaybackSpeed(it) },
+                        valueRange = 0.5f..2.0f,
+                        steps = 15, // 0.1 단위로 조절 가능: (2.0-0.5)/0.1 = 15
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .padding(top = 8.dp),
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFFAA8866),
+                            activeTrackColor = Color(0xFF3D5AFE),
+                            inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
+                        ),
+                        thumb = {
+                            Box(
+                                modifier = Modifier
+                                    .height(20.dp)
+                                    .width(5.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFFC000))
+                            )
+                        },
+                        track = { state ->
+                            // 커스텀 트랙 (더 두껍게 설정)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp) // 트랙 높이를 8dp로 설정
+                                    .clip(RoundedCornerShape(4.dp))
+                            ) {
+                                // 비활성 부분
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .background(Color.LightGray.copy(alpha = 0.7f))
+                                )
+                                val normalizedValue = (state.value - 0.5f) / (2.0f - 0.5f)
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(normalizedValue)
+                                        .height(8.dp)
+                                        .background(Color(0xFF3D5AFE))
+                                )
+                            }
+                        }
+                    )
+                }
+
+                // 피치 조절 슬라이더
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "음의 높낮이: ${String.format("%.1f", pitch)}x",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.DarkGray
+                    )
+
+                    Slider(
+                        value = pitch,
+                        onValueChange = { generatedStoryViewModel.setPitch(it) },
+                        valueRange = 0.5f..2.0f,
+                        steps = 15, // 0.1 단위로 조절 가능: (2.0-0.5)/0.1 = 15
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .padding(top = 8.dp),
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFFAA8866),
+                            activeTrackColor = Color(0xFF3D5AFE),
+                            inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
+                        ),
+                        thumb = {
+                            Box(
+                                modifier = Modifier
+                                    .height(20.dp)
+                                    .width(5.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFFC000))
+                            )
+                        },
+                        track = { state ->
+                            // 커스텀 트랙 (더 두껍게 설정)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp) // 트랙 높이를 8dp로 설정
+                                    .clip(RoundedCornerShape(4.dp))
+                            ) {
+                                // 비활성 부분
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .background(Color.LightGray.copy(alpha = 0.7f))
+                                )
+                                // 활성 부분
+                                val normalizedValue = (state.value - 0.5f) / (2.0f - 0.5f)
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(normalizedValue)
+                                        .height(8.dp)
+                                        .background(Color(0xFF3D5AFE))
+                                )
+                            }
+                        }
+                    )
+                }
+                // BGM 음량 조절 슬라이더
+                Column(
+                    modifier = Modifier.weight(1f)
+
+                ) {
+                    Text(
+                        text = "배경음 음량 조절",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.DarkGray
+                    )
+                    // 커스텀 슬라이더 크기 설정
+                    Slider(
+                        value = bgmVolume,
+                        onValueChange = { newVolume ->
+                            generatedStoryViewModel.setBackgroundMusicVolume(newVolume)
+                        },
+                        valueRange = 0f..1f,
+                        steps = 8,
+                        modifier = Modifier
+                            .fillMaxWidth(1f)
+                            .height(8.dp)
+                            .padding(top = 8.dp),
+                        // 슬라이더 커스텀 설정
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFFAA8866),
+                            activeTrackColor = Color(0xFF3D5AFE),
+                            inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
+                        ),
+                        // 트랙과 썸 크기 조정을 위한 설정
+                        thumb = {
+                            // 커스텀 썸 (더 크게 설정)
+                            Box(
+                                modifier = Modifier
+                                    .height(20.dp)
+                                    .width(5.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFFC000))
+                            )
+                        },
+                        track = { state ->
+                            // 커스텀 트랙 (더 두껍게 설정)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp) // 트랙 높이를 8dp로 설정
+                                    .clip(RoundedCornerShape(4.dp))
+                            ) {
+                                // 비활성 부분
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .background(Color.LightGray.copy(alpha = 0.7f))
+                                )
+                                // 활성 부분
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(state.value)
+                                        .height(8.dp)
+                                        .background(Color(0xFF3D5AFE))
+                                )
+                            }
+                        }
+                    )
+
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+
+            // 기능 버튼 영역 (목소리 선택, 배경음 설정, 목소리 추천)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(modifier = Modifier.width(8.dp))
+
+                NeuomorphicButton(
+                    onClick = { handleVoiceSelection() },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp),
+                    backgroundColor = Color(0xFFFEE566),
+                    cornerRadius = 8.dp,
+                    elevation = 4.dp
+                ) {
+
+                    Text(
+                        text = "목소리 선택",
+                        fontWeight = FontWeight.Bold,
+
+                        fontSize = 12.sp,
+                        color = Color.Black
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+
+                NeuomorphicButton(
+                    onClick = { navController.navigate(NavRoute.MusicList.routeWithArgs(storyId)) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp),
+                    backgroundColor = Color(0xFFFEE566),
+                    cornerRadius = 8.dp,
+                    elevation = 4.dp
+                ) {
+                    Text(
+                        text = "배경음 설정",
+                        fontWeight = FontWeight.Bold,
+
+                        fontSize = 12.sp,
+                        color = Color.Black
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                NeuomorphicButton(
+                    onClick = { handleVoiceRecommendation() },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp),
+                    backgroundColor = Color(0xFFFEE566),
+                    cornerRadius = 8.dp,
+                    elevation = 4.dp
+                ) {
+                    Text(
+                        text = "목소리 추천",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Color.Black
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+
+            }
+
+            // 동화 텍스트 영역
+            val sentencePositions = remember { mutableStateMapOf<Int, Int>() }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .weight(1f, fill = false)
+                    .verticalScroll(scrollState)
+            ) {
+                if (storySentences.isNotEmpty()) {
+                    storySentences.forEachIndexed { index, sentence ->
+                        val isCurrent = index == currentSentenceIndex
+                        Text(
+                            text = sentence,
+                            fontSize = 16.sp,
+                            color = if (isCurrent) Color(0xFFE9D364) else Color.Black,
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier
+                                .padding(vertical = 4.dp)
+                                .onGloballyPositioned { coordinates ->
+                                    sentencePositions[index] =
+                                        coordinates.positionInParent().y.toInt()
+                                },
+                            lineHeight = 24.sp
+                        )
+                    }
+
+                    // 현재 문장으로 자동 스크롤
+                    LaunchedEffect(currentSentenceIndex) {
+                        sentencePositions[currentSentenceIndex]?.let { y ->
+                            scrollState.animateScrollTo(y)
+                        }
+                    }
+                } else if (storyState.isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         CircularProgressIndicator(
                             color = Color(0xFFE9D364)
                         )
-                    } else {
-                        Text(
-                            text = "이미지 준비 중...",
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
-                        )
                     }
-                }
-            }
-        }
-
-        // 제목 및 나레이터 정보
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = storyState.storyTitle.ifEmpty { "동화 제목" },
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = "narrated by AI Voice",
-                fontSize = 14.sp,
-                color = Color(0xFFAA8866),
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
-
-        // 슬라이더 (드래그하여 재생 위치 이동)
-        Slider(
-            value = playbackProgress,
-            onValueChange = { newValue ->
-                val newPositionMs = (newValue * totalDuration).toInt()
-                generatedStoryViewModel.seekTo(newPositionMs)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-                .height(16.dp),
-            colors = SliderDefaults.colors(
-                thumbColor = Color(0xFFE9D364),
-                activeTrackColor = Color(0xFFE9D364),
-                inactiveTrackColor = Color(0xFFE0E0E0)
-            ),
-            enabled = !storyState.isLoading
-        )
-
-        // 시간 정보
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = progressText,
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
-            Text(
-                text = "$currentTimeText / $audioDurationText",
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
-        }
-
-        // 재생 컨트롤 버튼들
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 재생/일시정지 버튼
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE9D364))
-                    .clickable { generatedStoryViewModel.toggleAudioPlayback() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(
-                        id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                    ),
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = Color.Black,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(24.dp))
-
-            // 정지 버튼
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE9D364))
-                    .clickable { generatedStoryViewModel.stopAudio() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_stop),
-                    contentDescription = "Stop",
-                    tint = Color.Black,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(24.dp))
-
-            // BGM 컨트롤 버튼
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF9ED8D8))
-                    .clickable {
-                        Log.d("GeneratedStoryScreen", "배경음 버튼 클릭")
-                        generatedStoryViewModel.toggleBackgroundMusic()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(
-                        id = if (isBgmPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                    ),
-                    contentDescription = if (isBgmPlaying) "BGM Pause" else "BGM Play",
-                    tint = Color.Black,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
-        // 속도 및 피치 조절 슬라이더 - 가로로 나란히 배치
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // 속도 조절 슬라이더
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "낭독 속도: ${String.format("%.1f", playbackSpeed)}x",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.DarkGray
-                )
-
-                Slider(
-                    value = playbackSpeed,
-                    onValueChange = { generatedStoryViewModel.setPlaybackSpeed(it) },
-                    valueRange = 0.5f..2.0f,
-                    steps = 15, // 0.1 단위로 조절 가능: (2.0-0.5)/0.1 = 15
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .padding(top = 8.dp),
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFAA8866),
-                        activeTrackColor = Color(0xFF3D5AFE),
-                        inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
-                    ),
-                    thumb = {
-                        Box(
-                            modifier = Modifier
-                                .height(20.dp)
-                                .width(5.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFFC000))
-                        )
-                    },
-                    track = { state ->
-                        // 커스텀 트랙 (더 두껍게 설정)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp) // 트랙 높이를 8dp로 설정
-                                .clip(RoundedCornerShape(4.dp))
-                        ) {
-                            // 비활성 부분
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .background(Color.LightGray.copy(alpha = 0.7f))
-                            )
-                            val normalizedValue = (state.value - 0.5f) / (2.0f - 0.5f)
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(normalizedValue)
-                                    .height(8.dp)
-                                    .background(Color(0xFF3D5AFE))
-                            )
-                        }
-                    }
-                )
-            }
-
-            // 피치 조절 슬라이더
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "음의 높낮이: ${String.format("%.1f", pitch)}x",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.DarkGray
-                )
-
-                Slider(
-                    value = pitch,
-                    onValueChange = { generatedStoryViewModel.setPitch(it) },
-                    valueRange = 0.5f..2.0f,
-                    steps = 15, // 0.1 단위로 조절 가능: (2.0-0.5)/0.1 = 15
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .padding(top = 8.dp),
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFAA8866),
-                        activeTrackColor = Color(0xFF3D5AFE),
-                        inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
-                    ),
-                    thumb = {
-                        Box(
-                            modifier = Modifier
-                                .height(20.dp)
-                                .width(5.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFFC000))
-                        )
-                    },
-                    track = { state ->
-                        // 커스텀 트랙 (더 두껍게 설정)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp) // 트랙 높이를 8dp로 설정
-                                .clip(RoundedCornerShape(4.dp))
-                        ) {
-                            // 비활성 부분
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .background(Color.LightGray.copy(alpha = 0.7f))
-                            )
-                            // 활성 부분
-                            val normalizedValue = (state.value - 0.5f) / (2.0f - 0.5f)
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(normalizedValue)
-                                    .height(8.dp)
-                                    .background(Color(0xFF3D5AFE))
-                            )
-                        }
-                    }
-                )
-            }
-            // BGM 음량 조절 슬라이더
-            Column(
-                modifier = Modifier.weight(1f)
-
-            ) {
-                Text(
-                    text = "배경음 음량 조절",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.DarkGray
-                )
-                // 커스텀 슬라이더 크기 설정
-                Slider(
-                    value = bgmVolume,
-                    onValueChange = { newVolume ->
-                        generatedStoryViewModel.setBackgroundMusicVolume(newVolume)
-                    },
-                    valueRange = 0f..1f,
-                    steps = 8,
-                    modifier = Modifier
-                        .fillMaxWidth(1f)
-                        .height(8.dp)
-                        .padding(top = 8.dp),
-                    // 슬라이더 커스텀 설정
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFAA8866),
-                        activeTrackColor = Color(0xFF3D5AFE),
-                        inactiveTrackColor = Color.LightGray.copy(alpha = 0.7f)
-                    ),
-                    // 트랙과 썸 크기 조정을 위한 설정
-                    thumb = {
-                        // 커스텀 썸 (더 크게 설정)
-                        Box(
-                            modifier = Modifier
-                                .height(20.dp)
-                                .width(5.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFFC000))
-                        )
-                    },
-                    track = { state ->
-                        // 커스텀 트랙 (더 두껍게 설정)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp) // 트랙 높이를 8dp로 설정
-                                .clip(RoundedCornerShape(4.dp))
-                        ) {
-                            // 비활성 부분
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .background(Color.LightGray.copy(alpha = 0.7f))
-                            )
-                            // 활성 부분
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(state.value)
-                                    .height(8.dp)
-                                    .background(Color(0xFF3D5AFE))
-                            )
-                        }
-                    }
-                )
-
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-
-
-        // 기능 버튼 영역 (목소리 선택, 배경음 설정, 목소리 추천)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Spacer(modifier = Modifier.width(8.dp))
-
-            NeuomorphicButton(
-                onClick = { handleVoiceSelection() },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(36.dp),
-                backgroundColor = Color(0xFFFEE566),
-                cornerRadius = 8.dp,
-                elevation = 4.dp
-            ) {
-
-            Text(
-                    text = "목소리 선택",
-                fontWeight = FontWeight.Bold,
-
-                fontSize = 12.sp,
-                    color = Color.Black
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-
-            NeuomorphicButton(
-                onClick = { navController.navigate(NavRoute.MusicList.routeWithArgs(storyId)) },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(36.dp),
-                backgroundColor = Color(0xFFFEE566),
-                cornerRadius = 8.dp,
-                elevation = 4.dp
-            ) {
-                Text(
-                    text = "배경음 설정",
-                    fontWeight = FontWeight.Bold,
-
-                    fontSize = 12.sp,
-                    color = Color.Black
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            NeuomorphicButton(
-                onClick = { handleVoiceRecommendation() },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(36.dp),
-                backgroundColor = Color(0xFFFEE566),
-                cornerRadius = 8.dp,
-                elevation = 4.dp
-            ) {
-                Text(
-                    text = "목소리 추천",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = Color.Black
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-
-        }
-
-        // 동화 텍스트 영역
-        val sentencePositions = remember { mutableStateMapOf<Int, Int>() }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-                .weight(1f, fill = false)
-                .verticalScroll(scrollState)
-        ) {
-            if (storySentences.isNotEmpty()) {
-                storySentences.forEachIndexed { index, sentence ->
-                    val isCurrent = index == currentSentenceIndex
+                } else {
                     Text(
-                        text = sentence,
+                        text = "동화 텍스트가 준비 중입니다...",
                         fontSize = 16.sp,
-                        color = if (isCurrent) Color(0xFFE9D364) else Color.Black,
-                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier
-                            .padding(vertical = 4.dp)
-                            .onGloballyPositioned { coordinates ->
-                                sentencePositions[index] = coordinates.positionInParent().y.toInt()
-                            },
-                        lineHeight = 24.sp
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-
-                // 현재 문장으로 자동 스크롤
-                LaunchedEffect(currentSentenceIndex) {
-                    sentencePositions[currentSentenceIndex]?.let { y ->
-                        scrollState.animateScrollTo(y)
-                    }
-                }
-            } else if (storyState.isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFFE9D364)
-                    )
-                }
-            } else {
-                Text(
-                    text = "동화 텍스트가 준비 중입니다...",
-                    fontSize = 16.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Spacer(modifier = Modifier.height(80.dp))
             }
-            Spacer(modifier = Modifier.height(80.dp))
         }
         LaunchedEffect(storyId) {
             // 동화 내용 불러오기
             val (fairyTaleEntity, content) = fairyTaleRepository.getFairyTaleById(storyId)
             storyContent = content  // content 부분을 storyContent에 할당
         }
-        // 챗봇 버튼 추가
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp) //
-        ) {
-            Button(
-                onClick = { showChatbotDialog = true },
-                modifier = Modifier.align(Alignment.Center) //
-            ) {
-                Text(text = "챗봇")
-            }
-        }
 
+        //Box 위에 겹쳐서 띄우는 FloatingActionButton
+        FloatingActionButton(
+            onClick = { showChatbotDialog = true },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp),
+            containerColor = Color(0xFFE9D364)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.chatbot_image),
+                contentDescription = "챗봇",
+                modifier = Modifier.size(36.dp),
+                tint = Color.Unspecified
+            )
+        }
     }
 
 

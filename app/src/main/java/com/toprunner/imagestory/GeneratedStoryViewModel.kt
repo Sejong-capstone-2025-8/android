@@ -47,6 +47,9 @@ data class VoiceRecommendationState(
 
 class GeneratedStoryViewModel : ViewModel() {
 
+    private val _usedFallbackVoice = MutableStateFlow(false)
+    val usedFallbackVoice: StateFlow<Boolean> = _usedFallbackVoice.asStateFlow()
+
     private val _playbackSpeed = MutableStateFlow(1.0f)
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
 
@@ -216,11 +219,15 @@ class GeneratedStoryViewModel : ViewModel() {
     }
     suspend fun createStoryWithSelectedVoice(context: Context, selectedVoice: VoiceEntity): Long {
         try {
+            _usedFallbackVoice.value = false
+
             Log.d(TAG, "Starting to create story with selected voice: ${selectedVoice.title}, ID: ${selectedVoice.voice_id}")
 
             if (_storyState.value.storyId <= 0) {
                 throw IllegalStateException("원본 동화 ID가 유효하지 않습니다")
             }
+
+
 
             // 동화 생성 진행 중 상태로 변경
             _recommendationState.value = _recommendationState.value.copy(cloneCreationInProgress = true)
@@ -241,6 +248,8 @@ class GeneratedStoryViewModel : ViewModel() {
             Log.d(TAG, "Generating audio with selected voice ID: ${selectedVoice.voice_id}")
             val audioData = ttsService?.generateVoice(storyContent, selectedVoice.voice_id) ?: ByteArray(0)
 
+            // 생성된 오디오 체크
+            Log.d(TAG, "Audio data size: ${audioData.size} bytes")
             if (audioData.isEmpty()) {
                 Log.e(TAG, "Failed to generate audio with selected voice")
                 throw IllegalStateException("선택한 음성으로 오디오를 생성할 수 없습니다")
@@ -407,6 +416,11 @@ class GeneratedStoryViewModel : ViewModel() {
                 _storyState.value = StoryState(isLoading = true)
 
                 ttsService = TTSService(context)
+                ttsService?.setVoiceNotFoundListener {
+                    Log.d("GeneratedStoryViewModel", "폴백 음성 사용 알림 받음")
+                    _usedFallbackVoice.value = true
+                }
+
                 voiceFeaturesUtil = VoiceFeaturesUtil()
 
                 // 배경음 경로가 제공되면 즉시 설정
@@ -659,6 +673,7 @@ class GeneratedStoryViewModel : ViewModel() {
     // 추천된 음성으로 동화 복제
     suspend fun createStoryWithRecommendedVoice(context: Context): Long {
         try {
+            _usedFallbackVoice.value = false
             Log.d(TAG, "Starting to create story with recommended voice")
 
             val recommendedVoice = _recommendationState.value.recommendedVoice
