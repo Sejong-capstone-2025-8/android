@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -48,6 +49,7 @@ import com.toprunner.imagestory.ui.components.VoiceSelectionDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import com.toprunner.imagestory.ui.components.ChatbotDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,21 +92,52 @@ fun GeneratedStoryScreen(
     // GPTService 인스턴스 생성
     val gptService = GPTService()
     // 챗봇과 대화하는 함수
-    fun handleChatbot() {
+    fun handleChatbot(onComplete: () -> Unit) {
+        if (userMessage.isBlank()) {
+            // 빈 메시지인 경우 바로 로딩 종료 콜백
+            onComplete()
+            return
+        }
         if (userMessage.isNotBlank()) {
             // 대화 내역에 사용자 메시지 추가
-            conversationHistory.add("User: $userMessage")
+            conversationHistory.add("나: $userMessage")
             // GPT API 호출하여 답변을 받아옴
             CoroutineScope(Dispatchers.IO).launch {
-                val response = gptService.chatWithBot(userMessage, listOf(storyContent))
+                val response = gptService.chatWithBot(userMessage,conversationHistory,storyContent)
                 // 챗봇의 응답을 대화 내역에 추가
-                conversationHistory.add("Bot: $response")
+                conversationHistory.add("동화 챗봇: $response")
                 chatbotResponse = response
+                onComplete()
             }
         }
     }
+    // 다이얼로그를 열 때 인사 추가
+    LaunchedEffect(showChatbotDialog) {
+        if (showChatbotDialog && conversationHistory.isEmpty()) {
+            conversationHistory.add("동화 챗봇: 안녕하세요! 무엇을 도와드릴까요?")
+        }
+    }
+   /* // 동화 로드
+    LaunchedEffect(storyId) {
+        generatedStoryViewModel.loadStory(storyId, context)
+    }*/
+    var isLoading by remember { mutableStateOf(false) }
     // 챗봇 다이얼로그
     if (showChatbotDialog) {
+        ChatbotDialog(
+            conversationHistory = conversationHistory,
+            userMessage          = userMessage,
+            onMessageChange      = { userMessage = it },
+            isLoading            = isLoading,
+            onSend               = {
+                isLoading = true                         // 전송 직후 로딩 시작
+                handleChatbot {                         // handleChatbot 콜백 형태로 onComplete 추가
+                    isLoading = false                    // 응답 받으면 로딩 종료
+                }
+            },
+            onDismiss            = { showChatbotDialog = false }
+        )
+        /*
         AlertDialog(
             onDismissRequest = { showChatbotDialog = false },
             title = { Text("동화 챗봇") },
@@ -142,39 +175,9 @@ fun GeneratedStoryScreen(
                     Text("닫기")
                 }
             }
-        )
+        )*/
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFFFFBF0))
-    ) {
-        // 상단 헤더
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Text(
-                text = "Image Story",
-                modifier = Modifier.align(Alignment.Center),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
-            Text(
-                text = "뒤로",
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .clickable { navController.navigateUp() },
-                fontSize = 16.sp,
-                color = Color(0xFF9C8A54)
-            )
-        }
-
-
-    }
     // 뷰모델 상태 구독
     val storyState by generatedStoryViewModel.storyState.collectAsState()
     val isPlaying by generatedStoryViewModel.isPlaying.collectAsState()
@@ -368,11 +371,7 @@ fun GeneratedStoryScreen(
         }
     }
 
-    // 동화 로드
-    LaunchedEffect(storyId) {
-        generatedStoryViewModel.loadStory(storyId, context)
-    }
-
+Box(modifier = Modifier.fillMaxSize()){
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -779,7 +778,6 @@ fun GeneratedStoryScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
 
-
         // 기능 버튼 영역 (목소리 선택, 배경음 설정, 목소리 추천)
         Row(
             modifier = Modifier
@@ -800,11 +798,11 @@ fun GeneratedStoryScreen(
                 elevation = 4.dp
             ) {
 
-            Text(
+                Text(
                     text = "목소리 선택",
-                fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Bold,
 
-                fontSize = 12.sp,
+                    fontSize = 12.sp,
                     color = Color.Black
                 )
             }
@@ -907,25 +905,28 @@ fun GeneratedStoryScreen(
             }
             Spacer(modifier = Modifier.height(80.dp))
         }
+    }
         LaunchedEffect(storyId) {
             // 동화 내용 불러오기
             val (fairyTaleEntity, content) = fairyTaleRepository.getFairyTaleById(storyId)
             storyContent = content  // content 부분을 storyContent에 할당
         }
-        // 챗봇 버튼 추가
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp) //
-        ) {
-            Button(
-                onClick = { showChatbotDialog = true },
-                modifier = Modifier.align(Alignment.Center) //
-            ) {
-                Text(text = "챗봇")
-            }
-        }
 
+        //Box 위에 겹쳐서 띄우는 FloatingActionButton
+        FloatingActionButton(
+            onClick = { showChatbotDialog = true },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp),
+            containerColor = Color(0xFFE9D364)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.chatbot_image),
+                contentDescription = "챗봇",
+                modifier = Modifier.size(36.dp),
+                tint = Color.Unspecified
+            )
+        }
     }
 
 

@@ -77,7 +77,7 @@ class GPTService {
             return false
         }
     }
-    suspend fun chatWithBot(userMessage: String, previousMessages: List<String> = emptyList()): String = withContext(Dispatchers.IO) {
+    suspend fun chatWithBot(userMessage: String, previousMessages: List<String> = emptyList(),storycontent:String ): String = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Chatting with bot: $userMessage")
 
@@ -87,17 +87,26 @@ class GPTService {
                 put(
                     JSONObject().apply {
                         put("role", "system")
-                        put("content", "당신은 창의적인 AI 챗봇입니다. 사용자와 자연스러운 대화를 이어가세요.최대 7문장 까지로 답변을 정리하세요.")
+                        put("content", """
+                            당신은 어린이 대상의 동화 전문가입니다.\n +
+                                아래 원문 동화를 참고해서, 사용자의 질문에 친절하고 상세하게 답해주세요. +
+                                --- 동화 전문 시작 ---
+                                $storycontent
+                                --- 동화 전문 끝 ---
+                                """.trimIndent())
                     }
                 )
-                // 이전 메시지들 추가
-                previousMessages.forEach { message ->
-                    put(
-                        JSONObject().apply {
-                            put("role", "user")
-                            put("content", message)
-                        }
-                    )
+                // 이전 대화(질문/답변) 전체를 user/assistant 역할로 차례로 추가
+                previousMessages.chunked(2).forEach { pair ->
+                    // pair[0] = "나: xxx", pair[1] = "동화 챗봇: yyy" 라 가정
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", pair[0].substringAfter("나: ").trim())
+                    })
+                    put(JSONObject().apply {
+                        put("role", "assistant")
+                        put("content", pair[1].substringAfter("동화 챗봇: ").trim())
+                    })
                 }
                 // 사용자 메시지 추가
                 put(
@@ -109,9 +118,10 @@ class GPTService {
             }
 
             val requestObj = JSONObject().apply {
-                put("model", "gpt-3.5-turbo")
+                put("model", "gpt-4o")
                 put("messages", messages)
-                put("max_tokens", 300)  // 응답 길이를 제한
+                put("max_tokens", 500)  // 응답 길이를 제한
+                put("temperature", 0.7)                  // 창의성과 일관성 절충
             }
 
             // 실제 API 호출
