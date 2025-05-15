@@ -52,7 +52,10 @@ fun HomeScreen(
     onTakePhotoClicked: () -> Unit,
     onPickImageClicked: () -> Unit,
     onThemeSelected: (String) -> Unit,
-    onGenerateStoryClicked: () -> Unit
+    onGenerateStoryClicked: () -> Unit,
+
+    errorMessage: String?,           // ← 에러 메시지
+    onErrorDismiss: () -> Unit,      // ← 다이얼로그 닫기 콜백
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
     val themeOptions = remember { listOf("판타지", "사랑", "SF", "공포", "코미디","비극") }
@@ -85,7 +88,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(backgroundGradient)
         ) {
-            // 상단 바 (헤더) - 수정된 부분
+            // 상단 바 (헤더)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -355,8 +358,22 @@ fun HomeScreen(
                 }
             }
         }
-
-        // 테마 선택 다이얼로그 - 완전히 개선된 고급스러운 UI/UX
+        if (errorMessage != null) {
+            AlertDialog(
+                onDismissRequest = onErrorDismiss,
+                title = { Text("오류") },
+                text = {
+                    // !! 를 붙여서 null 이든 아니든 화면에 뿌려보게 강제
+                    Text(errorMessage!!)
+                },
+                confirmButton = {
+                    TextButton(onClick = onErrorDismiss) {
+                        Text("확인")
+                    }
+                }
+            )
+        }
+        // 테마 선택 다이얼로그
         if (showThemeDialog) {
             Dialog(onDismissRequest = { showThemeDialog = false }) {
                 val dialogWidth = 320.dp
@@ -784,7 +801,7 @@ fun LoadingAnimationDialog() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 세련된 진행 바
+            // 진행 바
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

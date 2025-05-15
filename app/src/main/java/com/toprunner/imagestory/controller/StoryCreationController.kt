@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONException
 import org.json.JSONObject
+import com.toprunner.imagestory.controller.StoryGenerationException
+import com.toprunner.imagestory.controller.VoiceGenerationException
 
 class StoryCreationController(private val context: Context) {
     private val TAG = "StoryCreationController"
@@ -41,7 +43,6 @@ class StoryCreationController(private val context: Context) {
                 Log.e(TAG, "Error optimizing image: ${e.message}", e)
                 image // 원본 이미지를 폴백으로 사용
             }
-
             // 이미지 검증 - 확장된 검증
             if (!validateImage(optimizedImage)) {
                 throw IllegalArgumentException("이미지가 동화 생성에 적합하지 않습니다.")
@@ -60,11 +61,21 @@ class StoryCreationController(private val context: Context) {
 
             // GPT API를 통해 동화 생성
             Log.d(TAG, "Generating story content using GPT API with theme: $englishTheme")
-            val gptResponse = gptService.generateStory(image, englishTheme)
+            val storyData = try {
+                val gptResponse = gptService.generateStory(image, englishTheme)
+                parseStoryResponse(gptResponse)
+            } catch (e: StoryGenerationException) {
+                // API 키 에러나 서버 에러 등, GPTService에서 던진 것은 그대로 올려보내기
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "GPT 오류(기타): ${e.message}", e)
+                throw StoryGenerationException("동화 생성 중 오류가 발생했습니다: ${e.message}")
+            }
+//            val gptResponse = gptService.generateStory(image, englishTheme)
             Log.d(TAG, "GPT API returned response successfully")
 
             // 동화 내용 처리
-            val storyData = parseStoryResponse(gptResponse)
+            //val storyData = parseStoryResponse(gptResponse)
 
             // 이후 storyData 사용
             val title = storyData.title
@@ -83,7 +94,14 @@ class StoryCreationController(private val context: Context) {
 
             // 추천된 음성으로 오디오 생성
             Log.d(TAG, "Generating audio for story")
-            val audioData = generateAudio(storyText, voiceId)
+            val audioData = try {
+                generateAudio(storyData.text, voiceRepository.recommendVoice(englishTheme, voiceFeatures))
+            } catch (e: Exception) {
+                Log.e(TAG, "TTS 오류: ${e.message}", e)
+                // 이 부분에서 “목소리 생성 중 오류”라는 메시지를 담아서 던집니다.
+                throw VoiceGenerationException("목소리 생성 중 오류가 발생했습니다.")
+            }
+//            val audioData = generateAudio(storyText, voiceId)
             Log.d(TAG, "Audio generated successfully, size: ${audioData.size} bytes")
 
             // 이미지 저장 및 ID 획득
@@ -292,6 +310,4 @@ class StoryCreationController(private val context: Context) {
             throw e
         }
     }
-
-
 }

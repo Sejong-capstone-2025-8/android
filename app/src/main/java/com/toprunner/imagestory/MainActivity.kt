@@ -60,6 +60,10 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
+import com.toprunner.imagestory.controller.StoryGenerationException
+import com.toprunner.imagestory.controller.VoiceGenerationException
+import com.toprunner.imagestory.util.NetworkUtil
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var firebaseAuth: FirebaseAuth
@@ -71,6 +75,8 @@ class MainActivity : ComponentActivity() {
     private var capturedImageBitmap by mutableStateOf<Bitmap?>(null)
     private var selectedTheme by mutableStateOf<String?>(null)
     private var isLoading by mutableStateOf(false)
+
+    private var errorMessage by mutableStateOf<String?>(null)
 
     // 컨트롤러
     private val storyCreationController by lazy { StoryCreationController(this) }
@@ -188,7 +194,9 @@ class MainActivity : ComponentActivity() {
                                 onTakePhotoClicked = { checkCameraPermissionAndOpenCameraNonCompose() },
                                 onPickImageClicked = { checkStoragePermissionAndOpenGallery() },
                                 onThemeSelected = { theme -> selectedTheme = theme },
-                                onGenerateStoryClicked = { startStoryCreation(navController) }
+                                onGenerateStoryClicked = { startStoryCreation(navController) },
+                                errorMessage          = errorMessage,            // ← 전달
+                                onErrorDismiss        = { errorMessage = null }, // ← 닫기
                             )
                         }
                         // 로그인 화면
@@ -208,7 +216,6 @@ class MainActivity : ComponentActivity() {
                                     }} // 구글 로그인 버튼 클릭 시 호출
                             )
                         }
-
                         // 회원가입 화면
                         composable(NavRoute.Register.route) {
                             RegisterScreen(
@@ -223,7 +230,6 @@ class MainActivity : ComponentActivity() {
                                 navController = navController
                             )
                         }
-
                         // 목소리 리스트 화면
                         composable(NavRoute.VoiceList.route) {
                             VoiceListScreen(
@@ -234,7 +240,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-
                             composable(
                                 route = "generated_story_screen/{storyId}",                  // 경로 정의
                                 arguments = listOf(navArgument("storyId") {
@@ -249,7 +254,6 @@ class MainActivity : ComponentActivity() {
                                     navController = navController,
                                     generatedStoryViewModel = generatedStoryViewModel,        //  ViewModel 공유
                                     fairyTaleRepository = fairyTaleRepository  // repository 전달
-
                                 )
                             }
                             // 음악 리스트 화면
@@ -504,8 +508,12 @@ class MainActivity : ComponentActivity() {
                 // UI 작업은 Main 스레드에서 수행
                 withContext(Dispatchers.Main) {
                     isLoading = false
-                    Log.e("MainActivity", "Error creating story: ${e.message}", e)
-                    Toast.makeText(this@MainActivity, "동화 생성에 실패했습니다: ${e.message}", Toast.LENGTH_LONG).show()
+                    Log.d("MainActivity", "errorMessage 에 세팅될 메시지: ${e.javaClass.simpleName} / ${e.message}")
+                    errorMessage = when (e) {
+                        is StoryGenerationException -> e.message       // "동화 생성 중 오류가 발생했습니다."
+                        is VoiceGenerationException -> e.message       // "목소리 생성 중 오류가 발생했습니다."
+                        else                        -> "알 수 없는 오류가 생겼어요!!"
+                    }
                 }
             }
         }

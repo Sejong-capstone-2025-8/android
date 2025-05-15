@@ -14,6 +14,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import com.toprunner.imagestory.controller.VoiceGenerationException
 
 class TTSService(private val context: Context) {
     private val voiceRepository = VoiceRepository(context)
@@ -99,19 +100,32 @@ class TTSService(private val context: Context) {
             val elevenlabsVoiceId = getElevenlabsVoiceId(voiceId, voiceEntity)
             Log.d(TAG, "Using ElevenLabs voice ID: $elevenlabsVoiceId")
 
-
             val requestBody = createRequestBody(text)
             val apiUrl = "$API_URL/$elevenlabsVoiceId"
 
             try {
-                val responseBytes = networkUtil.downloadAudio(apiUrl, headers, requestBody)
+                val (responseBytes, status) = networkUtil.downloadAudio(apiUrl, headers, requestBody)
+                // HTTP 상태 코드별 예외 분기
+                when (status) {
+                    401, 403 -> throw VoiceGenerationException("음성 API 키가 잘못되었습니다.")
+                    404 -> throw VoiceGenerationException("음성 모델을 찾을 수 없습니다.")
+                    429 -> throw VoiceGenerationException("음성 요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.")
+                    in 500..599 -> throw VoiceGenerationException("음성 서버 오류가 발생했습니다.")
+                    !in 200..299 -> throw VoiceGenerationException("알 수 없는 오류가 발생했습니다 (code=$status).")
+                }
+
+                // 빈 바이트 처리
                 if (responseBytes.isEmpty()) {
                     Log.e(TAG, "Empty response from ElevenLabs API")
-                    throw IllegalStateException("음성 생성에 실패했습니다: 응답이 비어있습니다.")
+                    throw VoiceGenerationException("음성 생성에 실패했습니다: 응답이 비어있습니다.")
                 }
 
                 Log.d(TAG, "Successfully generated audio, size: ${responseBytes.size} bytes")
                 return@withContext responseBytes
+
+            } catch (e: VoiceGenerationException) {
+                // 전용 예외는 그대로 던져서 상위에서 처리
+                throw e
             } catch (e: Exception) {
                 // API 오류 발생 시 기본 음성(Rachel)으로 재시도
                 Log.e(TAG, "Error with voice ID: $elevenlabsVoiceId. Trying fallback voice. Error: ${e.message}")
@@ -121,23 +135,28 @@ class TTSService(private val context: Context) {
                 val fallbackApiUrl = "$API_URL/$fallbackVoiceId"
 
                 try {
-                    val fallbackResponse = networkUtil.downloadAudio(fallbackApiUrl, headers, requestBody)
+                    val (fallbackResponse, fallbackStatus) = networkUtil.downloadAudio(fallbackApiUrl, headers, requestBody)
+
+                    if (fallbackStatus !in 200..299) {
+                        throw VoiceGenerationException("Fallback voice generation failed with status code: $fallbackStatus")
+                    }
+
                     if (fallbackResponse.isNotEmpty()) {
                         Log.d(TAG, "Fallback voice generation successful, size: ${fallbackResponse.size} bytes")
                         return@withContext fallbackResponse
+                    } else {
+                        throw VoiceGenerationException("Fallback voice generation returned empty response")
                     }
                 } catch (fallbackError: Exception) {
                     Log.e(TAG, "Fallback voice also failed: ${fallbackError.message}")
+                    // 모든 시도가 실패하면 기본 오디오 반환
+                    return@withContext generateDummyAudio(text.length)
                 }
-
-                // 모든 시도가 실패하면 기본 오디오 반환
-                return@withContext generateDummyAudio(text.length)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error generating voice: ${e.message}", e)
-            generateDummyAudio(text.length)
+            return@withContext generateDummyAudio(text.length)
         }
-
     }
 
 
@@ -325,7 +344,6 @@ class TTSService(private val context: Context) {
             return 0
         }
     }
-    // TTSService.kt (추가)
     fun seekTo(positionMs: Int): Boolean {
         return try {
             mediaPlayer?.seekTo(positionMs)

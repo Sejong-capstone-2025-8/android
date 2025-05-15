@@ -71,11 +71,11 @@ fun MusicListScreen(
     var genreExpanded by remember { mutableStateOf(false) }
     val genres = listOf("판타지", "사랑", "SF", "공포", "코미디")
 
-    // Selected music for GeneratedStory
+    // 생성된 동화화면에서 선택된 음악
     var selectedMusicPath by remember { mutableStateOf<String?>(null) }
     var selectedMusicId by remember { mutableStateOf<Long?>(null) }
 
-    // Initial load from DB
+    // DB 초기 로딩
     LaunchedEffect(Unit) {
         isLoading = true
         withContext(Dispatchers.IO) {

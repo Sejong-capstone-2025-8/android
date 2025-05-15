@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import com.toprunner.imagestory.controller.VoiceGenerationException
 
 /**
  * VoiceCloneService - 음성 복제 기능을 담당하는 서비스 클래스
@@ -99,7 +100,8 @@ class VoiceCloneService(private val context: Context) {
             )
 
             // 8. 응답 처리
-            val jsonResponse = JSONObject(response)
+            val (responseText, statusCode) = response
+            val jsonResponse = JSONObject(responseText)
             val voiceId = jsonResponse.optString("voice_id", "")
 
             if (voiceId.isBlank()) {
@@ -194,15 +196,58 @@ class VoiceCloneService(private val context: Context) {
 
             // 3. API 요청 - TTS 생성
             val apiUrl = "$API_URL_TTS/$voiceId"
-            val responseBytes = networkUtil.downloadAudio(apiUrl, headers, requestBody)
 
-            if (responseBytes.isEmpty()) {
-                Log.e(TAG, "Empty response from TTS API")
+            try {
+
+                val (bytes, status) = networkUtil.downloadAudio(apiUrl, headers, requestBody)
+
+                // 상태 코드별 예외 처리
+                when (status) {
+                    401, 403 -> throw VoiceGenerationException("음성 API 키가 잘못되었습니다.")
+                    404 -> throw VoiceGenerationException("음성 모델을 찾을 수 없습니다.")
+                    429 -> throw VoiceGenerationException("음성 요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.")
+                    in 500..599 -> throw VoiceGenerationException("음성 서버 오류가 발생했습니다.")
+                    !in 200..299 -> throw VoiceGenerationException("알 수 없는 오류가 발생했습니다 (code=$status).")
+                }
+
+                // 빈 바이트 배열 체크
+                if (bytes.isEmpty()) {
+                    Log.e(TAG, "Empty response from ElevenLabs API")
+                    throw VoiceGenerationException("음성 생성에 실패했습니다: 응답이 비어있습니다.")
+                }
+
+                Log.d(TAG, "Sample audio generated successfully: ${bytes.size} bytes")
+                return@withContext bytes
+
+            } catch (e: VoiceGenerationException) {
+                // 여기까지 올라온 확정된 예외는 그대로 던져서 상위(Controller)에서 처리
+                throw e
+            } catch (e: Exception) {
+                // 기본 오류 처리
+                Log.e(TAG, "Error generating sample audio: ${e.message}", e)
+
+                // 추가: 기본 음성 ID로 재시도 (선택적 폴백 메커니즘)
+                try {
+                    if (voiceId != "21m00Tcm4TlvDq8ikWAM") { // 이미 기본 음성이 아닌 경우에만 재시도
+                        Log.d(TAG, "Attempting with fallback voice")
+                        val fallbackVoiceId = "21m00Tcm4TlvDq8ikWAM" // Rachel - 안정적인 기본 음성
+                        val fallbackApiUrl = "$API_URL_TTS/$fallbackVoiceId"
+
+                        val (fallbackResponse, fallbackStatus) = networkUtil.downloadAudio(fallbackApiUrl, headers, requestBody)
+
+                        if (fallbackStatus in 200..299 && fallbackResponse.isNotEmpty()) {
+                            Log.d(TAG, "Fallback voice generation successful: ${fallbackResponse.size} bytes")
+                            return@withContext fallbackResponse
+                        }
+                    }
+                } catch (fallbackError: Exception) {
+                    Log.e(TAG, "Fallback voice also failed: ${fallbackError.message}")
+                }
+
+                // 모든 시도가 실패하면 빈 바이트 배열 반환
+                Log.e(TAG, "All voice generation attempts failed")
                 return@withContext ByteArray(0)
             }
-
-            Log.d(TAG, "Sample audio generated successfully: ${responseBytes.size} bytes")
-            return@withContext responseBytes
 
         } catch (e: Exception) {
             Log.e(TAG, "Error generating sample audio: ${e.message}", e)

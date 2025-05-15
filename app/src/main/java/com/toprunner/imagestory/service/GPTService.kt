@@ -13,6 +13,8 @@ import java.io.ByteArrayOutputStream
 import java.util.UUID
 import androidx.core.graphics.scale
 import com.toprunner.imagestory.data.entity.FairyTaleEntity
+import com.toprunner.imagestory.controller.StoryGenerationException
+import com.toprunner.imagestory.controller.VoiceGenerationException
 
 class GPTService {
     companion object {
@@ -20,42 +22,42 @@ class GPTService {
         private val API_KEY = BuildConfig.GPT_API_KEY
         private const val TAG = "GPTService"
     }
-
     private val networkUtil = NetworkUtil()
-
     // gpt api 요청용
     suspend fun generateStory(image: Bitmap, theme: String): String = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "다음의 테마로 동화를 생성 중: $theme")
             Log.d(TAG, "원본 이미지 크기: ${image.width}x${image.height}")
-
             val base64Image = encodeImageToBase64(image)
             Log.d(TAG, "Base64 encoded image length: ${base64Image.length}")
-
             val requestBody = createRequestBody(base64Image, theme)
             Log.d(TAG, "Sending request to GPT API. URL: $API_URL")
-
             // 실제 API 호출 (실제 API URL과 헤더, API 키를 사용)
-            val response = networkUtil.sendHttpRequest(
-                url = API_URL,
-                method = "POST",
+            val (response, statusCode) = networkUtil.sendHttpRequest(
+                url     = API_URL,
+                method  = "POST",
                 headers = mapOf(
-                    "Content-Type" to "application/json",
+                    "Content-Type"  to "application/json",
                     "Authorization" to "Bearer $API_KEY"
                 ),
-                body = requestBody
+                body    = requestBody
             )
-            Log.d(TAG, "GPT API raw response: $response")
-
-            validateResponse(response) // 응답 검증 개선
-
-            response
+            Log.d(TAG, "GPT API raw response (code=$statusCode): $response")
+//            validateResponse(response) // 응답 검증 개선
+//            response
+            when (statusCode) {
+                401, 403           -> throw StoryGenerationException("API 키가 잘못되었습니다.")
+                in 500..599        -> throw StoryGenerationException("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
+                !in 200..299       -> throw StoryGenerationException("알 수 없는 오류가 발생했습니다 (code=$statusCode).")
+            }
+            return@withContext response
+        } catch (e: StoryGenerationException) {
+            throw e      // 위에서 던진 건 그대로
         } catch (e: Exception) {
             Log.e(TAG, "Error generating story: ${e.message}", e)
-            generateErrorResponse(e.message ?: "Unknown error")
+            throw StoryGenerationException("동화 생성 중 오류가 발생했습니다: ${e.message}")
         }
     }
-
     private fun validateResponse(response: String): Boolean {
         try {
             val jsonResponse = JSONObject(response)
@@ -64,13 +66,11 @@ class GPTService {
                 Log.w(TAG, "Empty choices array in response")
                 return false
             }
-
             val message = choices.getJSONObject(0).getJSONObject("message")
             val content = message.optString("content", "")
 
             // JSON 형식 확인
             JSONObject(content.replace("```json", "").replace("```", "").trim())
-
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Invalid response format: ${e.message}")
@@ -80,7 +80,6 @@ class GPTService {
     suspend fun chatWithBot(userMessage: String, previousMessages: List<String> = emptyList()): String = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Chatting with bot: $userMessage")
-
             // 메시지 주고받기 위한 시스템과 사용자 메시지 배열 구성
             val messages = JSONArray().apply {
                 // 시스템 메시지 추가
@@ -128,12 +127,12 @@ class GPTService {
             Log.d(TAG, "Chatbot API raw response: $response")
 
             // GPT API에서 받은 응답 추출
-            val responseJson = JSONObject(response)
+            val (responseText, statusCode) = response
+            val responseJson = JSONObject(responseText)
             val message = responseJson.getJSONArray("choices")
                 .getJSONObject(0)
                 .getJSONObject("message")
                 .getString("content")
-
             message
         } catch (e: Exception) {
             Log.e(TAG, "Error chatting with bot: ${e.message}", e)
@@ -162,7 +161,6 @@ class GPTService {
             created_at = System.currentTimeMillis()
         )
     }
-
 
     fun encodeImageToBase64(bitmap: Bitmap, quality: Int = 90, maxDimension: Int = 1536): String {
         val baos = ByteArrayOutputStream()
@@ -202,7 +200,6 @@ class GPTService {
         3. 추가적인 설명이나 부가 텍스트 없이 오직 JSON 객체만 출력해야 합니다.
         4. 모든 숫자 값에는 표준 ASCII 문자만 사용하세요. 특히 마이너스 기호는 일반 하이픈 '-'를 사용하세요.
         5. 동화 텍스트는 300 단어에서 500 단어 사이의 분량으로 작성해주세요.
-
 
         이미지 데이터: data:image/jpeg;base64,$base64Image
     """.trimIndent()
