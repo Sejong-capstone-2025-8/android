@@ -21,6 +21,17 @@ import com.google.firebase.auth.FirebaseAuth
 import com.toprunner.imagestory.R
 import com.toprunner.imagestory.navigation.NavRoute
 import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+
 
 @Composable
 fun SettingsScreen(
@@ -28,6 +39,10 @@ fun SettingsScreen(
     onLogoutClicked: () -> Unit // onLogoutClicked를 외부에서 전달받음
 ) {
     val backgroundColor = Color(0xFFFFFBF0) // Light cream background color
+
+    val customFontFamily = FontFamily(
+        Font(R.font.font)  // OTF 파일을 참조
+    )
 
     Column(
         modifier = Modifier
@@ -53,7 +68,7 @@ fun SettingsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "홈",
+                        text = "설정",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF3F2E20)
@@ -70,17 +85,86 @@ fun SettingsScreen(
             onClick = { navController.navigate(NavRoute.ManageAccount.route)}
         )
 
-        /*SettingsItemCard(
-            icon = R.drawable.ic_notice,
-            title = "공지사항 확인하기",
-            onClick = { onLogoutClicked() }
-        )*/
-
         SettingsItemCard(
             icon = R.drawable.ic_logout,
             title = "로그아웃",
             onClick = { onLogoutClicked() }
         )
+
+        val context = LocalContext.current
+        var showDialog by remember { mutableStateOf(false) }
+
+        val developerEmails = listOf(
+            "dev1@example.com",
+            "dev2@example.com",
+            "dev3@example.com",
+            "dev4@example.com"
+        )
+
+        SettingsItemCard(
+            icon = R.drawable.ic_notice,
+            title = "문의하기",
+            onClick = {
+                showDialog = true
+            }
+        )
+
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = { Text(
+                    text = "확인하는대로 답변드리겠습니다",
+                    style = TextStyle(  // TextStyle 객체로 설정
+                        fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                        fontSize = 24.sp,               // 텍스트 크기 설정
+                        fontWeight = FontWeight.Medium, // 텍스트 굵기 설정
+                        color = Color.Black,            // 텍스트 색상
+                        letterSpacing = 1.5.sp,         // 글자 간격
+                        textAlign = TextAlign.Center   // 텍스트 정렬
+                    )
+                ) },
+                text = {
+                    Column {
+                        developerEmails.forEach { email ->
+                            TextButton(onClick = {
+                                //showDialog = false
+                            }) {
+                                Text(
+                                    text = email,
+                                    style = TextStyle(  // TextStyle 객체로 설정
+                                        fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                                        fontSize = 24.sp,               // 텍스트 크기 설정
+                                        fontWeight = FontWeight.Light, // 텍스트 굵기 설정
+                                        color = Color.Black,            // 텍스트 색상
+                                        letterSpacing = 1.5.sp,         // 글자 간격
+                                        textAlign = TextAlign.Center   // 텍스트 정렬
+                                    )
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = { showDialog = false }) {
+                        Text(
+                            text = "닫기",
+                            style = TextStyle(  // TextStyle 객체로 설정
+                                fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                                fontSize = 16.sp,               // 텍스트 크기 설정
+                                fontWeight = FontWeight.Medium, // 텍스트 굵기 설정
+                                color = Color.Black,            // 텍스트 색상
+                                letterSpacing = 1.5.sp,         // 글자 간격
+                                textAlign = TextAlign.Center   // 텍스트 정렬
+                            )
+                        )
+                    }
+                }
+            )
+        }
+
+
+
+
 
         // Version info
         Box(

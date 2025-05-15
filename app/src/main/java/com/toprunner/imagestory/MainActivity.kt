@@ -62,6 +62,7 @@ import java.util.*
 
 import com.toprunner.imagestory.controller.StoryGenerationException
 import com.toprunner.imagestory.controller.VoiceGenerationException
+import com.toprunner.imagestory.navigation.NavRoute.firstScreen
 import com.toprunner.imagestory.util.NetworkUtil
 
 class MainActivity : ComponentActivity() {
@@ -199,31 +200,42 @@ class MainActivity : ComponentActivity() {
                                 onErrorDismiss        = { errorMessage = null }, // ← 닫기
                             )
                         }
-                        // 로그인 화면
-                        composable(NavRoute.Login.route) {
-                            LoginScreen(
-                                onLoginSuccess = {
-                                    navController.navigate(NavRoute.Home.route) {
-                                        popUpTo(NavRoute.Login.route) { inclusive = true }
+
+                            // 첫 화면
+                            composable(NavRoute.firstScreen.route) {
+                                firstScreen(
+                                    onLoginClick = {
+                                        navController.navigate(NavRoute.Login.route)
+                                    },
+                                    onRegisterClick = {
+                                        navController.navigate(NavRoute.Register.route)
                                     }
-                                },
-                                onRegisterClick = {
-                                    navController.navigate(NavRoute.Register.route)
-                                },
-                                onGoogleLoginClick = {
-                                    navController.navigate(NavRoute.Home.route) {
-                                        popUpTo(NavRoute.Login.route) { inclusive = true }
-                                    }} // 구글 로그인 버튼 클릭 시 호출
-                            )
-                        }
-                        // 회원가입 화면
-                        composable(NavRoute.Register.route) {
-                            RegisterScreen(
-                                onRegisterSuccess = {
-                                    navController.popBackStack() // 로그인 화면으로 돌아감
-                                }
-                            )
-                        }
+                                )
+                            }
+
+                            // 로그인 화면
+                            composable(NavRoute.Login.route) {
+                                LoginScreen(
+                                    onLoginSuccess = {
+                                        navController.navigate(NavRoute.Home.route) {
+                                            popUpTo(NavRoute.Login.route) { inclusive = true }
+                                        }
+                                    },
+                                    onGoogleLoginClick = {
+                                        navController.navigate(NavRoute.Home.route) {
+                                            popUpTo(NavRoute.Login.route) { inclusive = true }
+                                        }} // 구글 로그인 버튼 클릭 시 호출
+                                )
+                            }
+
+                            // 회원가입 화면
+                            composable(NavRoute.Register.route) {
+                                RegisterScreen(
+                                    onRegisterSuccess = {
+                                        navController.popBackStack() // 로그인 화면으로 돌아감
+                                    }
+                                )
+                            }
                         // 동화 리스트 화면
                         composable(NavRoute.FairyTaleList.route) {
                             FairyTaleListScreen(

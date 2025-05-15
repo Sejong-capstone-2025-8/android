@@ -1,8 +1,11 @@
 package com.toprunner.imagestory.navigation
 
 sealed class NavRoute(val route: String) {
-    object Login : NavRoute("login")               // 추가한코드
-    object Register : NavRoute("register")         // 추가한코드
+    object firstScreen : NavRoute("firstScreen")
+
+    object Login : NavRoute("login")
+    object Register : NavRoute("register")
+
     object Home : NavRoute("home")
     object FairyTaleList : NavRoute("fairytale_list")
     object VoiceList : NavRoute("voice_list")
@@ -12,8 +15,8 @@ sealed class NavRoute(val route: String) {
     }
 
     object Settings : NavRoute("settings")
-    object ManageAccount : NavRoute("manage_account") //  manage account
-    object EditAccount : NavRoute("edit_account_screen")   // edit account
+    object ManageAccount : NavRoute("manage_account") //  계정 관리
+    object EditAccount : NavRoute("edit_account_screen")   // 계정 수정
     object GeneratedStory : NavRoute("generated_story/{storyId}?bgmPath={bgmPath}") {
         fun createRoute(storyId: Long, bgmPath: String? = null): String {
             return if (bgmPath != null) {

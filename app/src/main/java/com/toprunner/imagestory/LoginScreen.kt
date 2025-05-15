@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +16,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,12 +27,13 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.toprunner.imagestory.R
-import java.time.format.TextStyle
+import androidx.compose.ui.text.TextStyle  // 올바른 TextStyle 임포트
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onRegisterClick: () -> Unit,
     onGoogleLoginClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -76,17 +80,30 @@ fun LoginScreen(
         }
     }
 
+    val customFontFamily = FontFamily(
+        Font(R.font.font)  // OTF 파일을 참조
+    )
 
-//firebase 로그인 인증 과정
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+            .padding(20.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("로그인", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "로그인",
+            style = TextStyle(  // TextStyle 객체로 설정
+                fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                fontSize = 50.sp,               // 텍스트 크기 설정
+                fontWeight = FontWeight.Medium, // 텍스트 굵기 설정
+                color = Color.Black,            // 텍스트 색상
+                letterSpacing = 1.5.sp,         // 글자 간격
+                textAlign = TextAlign.Center   // 텍스트 정렬
+            )
+        )
+        Spacer(modifier = Modifier.height(36.dp))
+
 
         OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("이메일") },singleLine = true,
             modifier = Modifier
@@ -101,7 +118,8 @@ fun LoginScreen(
                 .height(72.dp),
             visualTransformation = PasswordVisualTransformation(),
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
         //이메일 로그인
         Button(onClick = {
             if (email.isBlank() || password.isBlank()) {
@@ -119,18 +137,23 @@ fun LoginScreen(
                     }
             }
         }, modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp))
-        {
-            Text("로그인")
-        }
-        //회원가입 버튼
-        TextButton(onClick = onRegisterClick) {
-            Text("회원가입",color = Color.Gray)
+            .width(85.dp)
+            .height(56.dp),
+        ){
+            Text(
+                text = "확인",
+                style = TextStyle(  // TextStyle 객체로 설정
+                    fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                    fontSize = 22.sp,               // 텍스트 크기 설정
+                    fontWeight = FontWeight.Light, // 텍스트 굵기 설정
+                    color = Color.Black,            // 텍스트 색상
+                    letterSpacing = 1.5.sp,         // 글자 간격
+                    textAlign = TextAlign.Center   // 텍스트 정렬
+                )
+            )
 
         }
-        // 구글 로그인 버튼 추가
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         IconButton(
             onClick = {
                 val signInIntent = googleSignInClient.signInIntent

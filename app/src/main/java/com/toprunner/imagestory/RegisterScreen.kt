@@ -8,8 +8,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -26,6 +32,11 @@ fun RegisterScreen(
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var termsAccepted by remember { mutableStateOf(false) }
+
+    val customFontFamily = FontFamily(
+        Font(R.font.font)  // OTF 파일을 참조
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -33,7 +44,18 @@ fun RegisterScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("회원가입", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            text = "회원가입",
+            style = TextStyle(  // TextStyle 객체로 설정
+                fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                fontSize = 50.sp,               // 텍스트 크기 설정
+                fontWeight = FontWeight.Medium, // 텍스트 굵기 설정
+                color = Color.Black,            // 텍스트 색상
+                letterSpacing = 1.5.sp,         // 글자 간격
+                textAlign = TextAlign.Center   // 텍스트 정렬
+            )
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
         // 사용자명
         Text("사용자명", color = Color.Black,style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth())
@@ -141,9 +163,20 @@ fun RegisterScreen(
                 }
         },
             modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp)) {
-            Text("회원가입")
+                .width(85.dp)
+                .height(56.dp)
+        ) {
+            Text(
+                text = "완료",
+                style = TextStyle(  // TextStyle 객체로 설정
+                    fontFamily = customFontFamily,  // 추가한 OTF 폰트 사용
+                    fontSize = 22.sp,               // 텍스트 크기 설정
+                    fontWeight = FontWeight.Light, // 텍스트 굵기 설정
+                    color = Color.Black,            // 텍스트 색상
+                    letterSpacing = 1.5.sp,         // 글자 간격
+                    textAlign = TextAlign.Center   // 텍스트 정렬
+                )
+            )
         }
     }
 }
