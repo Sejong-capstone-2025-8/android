@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,7 +43,10 @@ import kotlinx.coroutines.launch
 import com.toprunner.imagestory.repository.FairyTaleRepository
 import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.screens.NeuomorphicButton
+import com.toprunner.imagestory.service.GPTService
 import com.toprunner.imagestory.ui.components.VoiceSelectionDialog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,7 +56,8 @@ fun GeneratedStoryScreen(
     bgmPath: String? = null,
     navController: NavController,
     generatedStoryViewModel: GeneratedStoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    fairyTaleViewModel: FairyTaleViewModel? = null
+    fairyTaleViewModel: FairyTaleViewModel? = null,
+    fairyTaleRepository: FairyTaleRepository
 ) {
 
     // 상태 값 수집
@@ -75,6 +81,101 @@ fun GeneratedStoryScreen(
         FairyTaleViewModel(FairyTaleRepository(context))
     }
 
+    //챗봇 관련
+    var userMessage by remember { mutableStateOf("") }
+    var chatbotResponse by remember { mutableStateOf("") }
+    var showChatbotDialog by remember { mutableStateOf(false) }
+    var storyContent by remember { mutableStateOf("") } // 동화 내용 저장용
+    val conversationHistory = remember { mutableStateListOf<String>() }  // 대화 내역 저장
+
+    // GPTService 인스턴스 생성
+    val gptService = GPTService()
+    // 챗봇과 대화하는 함수
+    fun handleChatbot() {
+        if (userMessage.isNotBlank()) {
+            // 대화 내역에 사용자 메시지 추가
+            conversationHistory.add("User: $userMessage")
+            // GPT API 호출하여 답변을 받아옴
+            CoroutineScope(Dispatchers.IO).launch {
+                val response = gptService.chatWithBot(userMessage, listOf(storyContent))
+                // 챗봇의 응답을 대화 내역에 추가
+                conversationHistory.add("Bot: $response")
+                chatbotResponse = response
+            }
+        }
+    }
+    // 챗봇 다이얼로그
+    if (showChatbotDialog) {
+        AlertDialog(
+            onDismissRequest = { showChatbotDialog = false },
+            title = { Text("동화 챗봇") },
+            text = {
+                Column {
+                    // 과거 대화 내역을 표시
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(conversationHistory) { message ->
+                            Text(
+                                text = message,
+                                fontSize = 16.sp,
+                                color = Color.Black,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                    }
+                    TextField(
+                        value = userMessage,
+                        onValueChange = { userMessage = it },
+                        label = { Text("질문을 입력하세요") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(onClick = { handleChatbot() }) {
+                        Text("질문하기")
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    /*if (chatbotResponse.isNotEmpty()) {
+                        Text("답변: $chatbotResponse")
+                    }*/
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showChatbotDialog = false }) {
+                    Text("닫기")
+                }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFFFBF0))
+    ) {
+        // 상단 헤더
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                text = "Image Story",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+            Text(
+                text = "뒤로",
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .clickable { navController.navigateUp() },
+                fontSize = 16.sp,
+                color = Color(0xFF9C8A54)
+            )
+        }
+
+
+    }
     // 뷰모델 상태 구독
     val storyState by generatedStoryViewModel.storyState.collectAsState()
     val isPlaying by generatedStoryViewModel.isPlaying.collectAsState()
@@ -144,7 +245,6 @@ fun GeneratedStoryScreen(
             }
         }
     }
-
     fun handleVoiceSelection() {
         // 낭독용 음성 목록 로드
         generatedStoryViewModel.loadCloneVoices(context)
@@ -808,7 +908,27 @@ fun GeneratedStoryScreen(
             }
             Spacer(modifier = Modifier.height(80.dp))
         }
+        LaunchedEffect(storyId) {
+            // 동화 내용 불러오기
+            val (fairyTaleEntity, content) = fairyTaleRepository.getFairyTaleById(storyId)
+            storyContent = content  // content 부분을 storyContent에 할당
+        }
+        // 챗봇 버튼 추가
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp) //
+        ) {
+            Button(
+                onClick = { showChatbotDialog = true },
+                modifier = Modifier.align(Alignment.Center) //
+            ) {
+                Text(text = "챗봇")
+            }
+        }
+
     }
+
 
     // 음성 추천 다이얼로그
     if (showRecommendationDialog) {

@@ -77,7 +77,69 @@ class GPTService {
             return false
         }
     }
+    suspend fun chatWithBot(userMessage: String, previousMessages: List<String> = emptyList()): String = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Chatting with bot: $userMessage")
 
+            // 메시지 주고받기 위한 시스템과 사용자 메시지 배열 구성
+            val messages = JSONArray().apply {
+                // 시스템 메시지 추가
+                put(
+                    JSONObject().apply {
+                        put("role", "system")
+                        put("content", "당신은 창의적인 AI 챗봇입니다. 사용자와 자연스러운 대화를 이어가세요.최대 7문장 까지로 답변을 정리하세요.")
+                    }
+                )
+                // 이전 메시지들 추가
+                previousMessages.forEach { message ->
+                    put(
+                        JSONObject().apply {
+                            put("role", "user")
+                            put("content", message)
+                        }
+                    )
+                }
+                // 사용자 메시지 추가
+                put(
+                    JSONObject().apply {
+                        put("role", "user")
+                        put("content", userMessage)
+                    }
+                )
+            }
+
+            val requestObj = JSONObject().apply {
+                put("model", "gpt-3.5-turbo")
+                put("messages", messages)
+                put("max_tokens", 300)  // 응답 길이를 제한
+            }
+
+            // 실제 API 호출
+            val response = networkUtil.sendHttpRequest(
+                url = API_URL,
+                method = "POST",
+                headers = mapOf(
+                    "Content-Type" to "application/json",
+                    "Authorization" to "Bearer $API_KEY"
+                ),
+                body = requestObj.toString()
+            )
+
+            Log.d(TAG, "Chatbot API raw response: $response")
+
+            // GPT API에서 받은 응답 추출
+            val responseJson = JSONObject(response)
+            val message = responseJson.getJSONArray("choices")
+                .getJSONObject(0)
+                .getJSONObject("message")
+                .getString("content")
+
+            message
+        } catch (e: Exception) {
+            Log.e(TAG, "Error chatting with bot: ${e.message}", e)
+            "챗봇과의 대화 중 오류가 발생했습니다. 다시 시도해 주세요."
+        }
+    }
     // 동화 리스트 저장용
     suspend fun generateFairyTaleEntity(image: Bitmap, theme: String): FairyTaleEntity {
         val jsonString = generateStory(image, theme)

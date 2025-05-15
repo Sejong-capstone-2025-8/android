@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -45,12 +46,14 @@ import com.google.android.gms.common.api.ApiException
 import com.toprunner.imagestory.controller.StoryCreationController
 import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.navigation.NavRoute
+import com.toprunner.imagestory.repository.FairyTaleRepository
 import com.toprunner.imagestory.screens.*
 import com.toprunner.imagestory.ui.components.BottomNavBar
 import com.toprunner.imagestory.ui.theme.ImageStoryTheme
 import com.toprunner.imagestory.util.AudioAnalyzer
 import com.toprunner.imagestory.util.ImageUtil
 import kotlinx.coroutines.Dispatchers
+
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -233,31 +236,35 @@ class MainActivity : ComponentActivity() {
                         }
 
                             composable(
-                                route = "generated_story_screen/{storyId}",                  // 🔥 경로 정의
+                                route = "generated_story_screen/{storyId}",                  // 경로 정의
                                 arguments = listOf(navArgument("storyId") {
                                     type = NavType.LongType
                                 })
                             ) { backStackEntry ->
                                 val storyId = backStackEntry.arguments?.getLong("storyId") ?: 0L
+                                val context = LocalContext.current  // LocalContext.current를 사용하여 context를 얻어옵니다.
+                                val fairyTaleRepository = FairyTaleRepository(context)
                                 GeneratedStoryScreen(
                                     storyId = storyId,
                                     navController = navController,
-                                    generatedStoryViewModel = generatedStoryViewModel        // 🔥 ViewModel 공유
+                                    generatedStoryViewModel = generatedStoryViewModel,        //  ViewModel 공유
+                                    fairyTaleRepository = fairyTaleRepository  // repository 전달
+
                                 )
                             }
                             // 음악 리스트 화면
 //                        composable(NavRoute.MusicList.route) {
 //                            MusicListScreen(
 //                                navController = navController,
-//                                viewModel = generatedStoryViewModel,                     // 🔥 ViewModel 주입
-//                                onNavigateToStory = { storyId ->                          // 🔥 이동 콜백
+//                                viewModel = generatedStoryViewModel,                     // ViewModel 주입
+//                                onNavigateToStory = { storyId ->                          // 이동 콜백
 //                                    navController.navigate(NavRoute.GeneratedStory.createRoute(storyId))
 //                                }
 //                            )
 //                        }
 
                             composable(NavRoute.MusicManager.route) {
-                                MusicManagerScreen() // ✅ 음악 관리 화면
+                                MusicManagerScreen() // 음악 관리 화면
                             }
                             composable(
                                 route = "music_list/{storyId}",
@@ -268,7 +275,7 @@ class MainActivity : ComponentActivity() {
                                 MusicListScreen(
                                     navController = navController,
                                     viewModel = generatedStoryViewModel,
-                                    storyId = storyId,  // 🔥 전달
+                                    storyId = storyId,  // 전달
                                     onNavigateToStory = { id ->
                                         navController.navigate(NavRoute.GeneratedStory.createRoute(id))
                                     }
@@ -327,12 +334,15 @@ class MainActivity : ComponentActivity() {
                             ) { backStackEntry ->
                                 val storyId = backStackEntry.arguments?.getLong("storyId") ?: -1
                                 val bgmPath = backStackEntry.arguments?.getString("bgmPath")
+                                val context = LocalContext.current  // LocalContext.current를 사용하여 context를 얻어옵니다.
+                                val fairyTaleRepository = FairyTaleRepository(context)
                                 if (storyId != -1L) {
                                     GeneratedStoryScreen(
                                         storyId = storyId,
                                         bgmPath = bgmPath,
                                         navController = navController,
-                                        generatedStoryViewModel = generatedStoryViewModel
+                                        generatedStoryViewModel = generatedStoryViewModel,
+                                        fairyTaleRepository = fairyTaleRepository  // repository 전달
                                     )
                                 }
                             }
