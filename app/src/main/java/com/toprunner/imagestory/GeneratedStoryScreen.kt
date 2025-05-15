@@ -63,6 +63,8 @@ fun GeneratedStoryScreen(
 ) {
     val usedFallbackVoice by generatedStoryViewModel.usedFallbackVoice.collectAsState()
     var showFallbackDialog by remember { mutableStateOf(false) }
+    var handledFallback by remember { mutableStateOf(false) }
+
 
 
     // 상태 값 수집
@@ -79,8 +81,10 @@ fun GeneratedStoryScreen(
         generatedStoryViewModel.loadStory(storyId, context, bgmPath)
     }
     LaunchedEffect(usedFallbackVoice) {
-        if (usedFallbackVoice) {
+        Log.d("GeneratedStoryScreen", "usedFallbackVoice: $usedFallbackVoice, handled: $handledFallback")
+        if (usedFallbackVoice && !handledFallback) {
             showFallbackDialog = true
+            handledFallback = true  // 처리 표시
         }
     }
 
@@ -188,7 +192,11 @@ fun GeneratedStoryScreen(
 
     if (showFallbackDialog) {
         AlertDialog(
-            onDismissRequest = { showFallbackDialog = false },
+            onDismissRequest = {
+                showFallbackDialog = false
+                // 뷰모델 상태도 초기화 (옵션)
+                generatedStoryViewModel.clearFallbackState()
+            },
             title = {
                 Text(
                     "음성 변경 알림",
@@ -207,7 +215,11 @@ fun GeneratedStoryScreen(
             },
             confirmButton = {
                 Button(
-                    onClick = { showFallbackDialog = false },
+                    onClick = {
+                        showFallbackDialog = false
+                        // 뷰모델 상태 초기화 (옵션)
+                        generatedStoryViewModel.clearFallbackState()
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE9D364))
                 ) {
                     Text(

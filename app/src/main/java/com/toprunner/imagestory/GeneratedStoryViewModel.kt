@@ -413,6 +413,7 @@ class GeneratedStoryViewModel : ViewModel() {
     fun loadStory(storyId: Long, context: Context, bgmPath: String? = null) {
         viewModelScope.launch {
             try {
+                _usedFallbackVoice.value = false
                 _storyState.value = StoryState(isLoading = true)
 
                 ttsService = TTSService(context)
@@ -742,6 +743,9 @@ class GeneratedStoryViewModel : ViewModel() {
             newStoryCreated = false,
             newStoryId = -1L
         )
+    }
+    fun clearFallbackState() {
+        _usedFallbackVoice.value = false
     }
 
 
