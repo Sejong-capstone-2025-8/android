@@ -9,7 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -233,6 +232,10 @@ fun GeneratedStoryScreen(
             shape = RoundedCornerShape(16.dp)
         )
     }
+
+
+
+
 
     // 뷰모델 상태 구독
     val storyState by generatedStoryViewModel.storyState.collectAsState()
@@ -867,26 +870,6 @@ fun GeneratedStoryScreen(
 
 
                 NeuomorphicButton(
-                    onClick = { navController.navigate(NavRoute.MusicList.routeWithArgs(storyId)) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(36.dp),
-                    backgroundColor = Color(0xFFFEE566),
-                    cornerRadius = 8.dp,
-                    elevation = 4.dp
-                ) {
-                    Text(
-                        text = "배경음 설정",
-                        fontWeight = FontWeight.Bold,
-
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                NeuomorphicButton(
                     onClick = { handleVoiceRecommendation() },
                     modifier = Modifier
                         .weight(1f)
@@ -897,6 +880,26 @@ fun GeneratedStoryScreen(
                 ) {
                     Text(
                         text = "목소리 추천",
+                        fontWeight = FontWeight.Bold,
+
+                        fontSize = 12.sp,
+                        color = Color.Black
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                NeuomorphicButton(
+                    onClick = { navController.navigate(NavRoute.MusicList.routeWithArgs(storyId)) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp),
+                    backgroundColor = Color(0xFFFEE566),
+                    cornerRadius = 8.dp,
+                    elevation = 4.dp
+                ) {
+                    Text(
+                        text = "배경음 설정",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         color = Color.Black
