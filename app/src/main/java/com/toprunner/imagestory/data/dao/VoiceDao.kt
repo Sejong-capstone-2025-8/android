@@ -10,10 +10,11 @@ interface VoiceDao {
 
     @Query("SELECT * FROM voices WHERE voice_id = :voiceId")
     suspend fun getVoiceById(voiceId: Long): VoiceEntity?
-
-    @Query("SELECT * FROM voices")
+    // 0515 박찬우 변경사항
+    @Query("SELECT * FROM voices ORDER BY created_at DESC")
     suspend fun getAllVoices(): List<VoiceEntity>
-
+//    @Query("SELECT * FROM voices")
+//    suspend fun getAllVoices(): List<VoiceEntity>
     @Query("DELETE FROM voices WHERE voice_id = :voiceId")
     suspend fun deleteVoice(voiceId: Long): Int
 

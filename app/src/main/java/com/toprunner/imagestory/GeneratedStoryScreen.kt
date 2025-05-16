@@ -812,7 +812,24 @@ fun GeneratedStoryScreen(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-
+            NeuomorphicButton(
+                onClick = { handleVoiceRecommendation() },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp),
+                backgroundColor = Color(0xFFFEE566),
+                cornerRadius = 8.dp,
+                elevation = 4.dp
+            ) {
+                Text(
+                    text = "목소리 추천",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = Color.Black
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            // 0515 박찬우 변경사항
             NeuomorphicButton(
                 onClick = { navController.navigate(NavRoute.MusicList.routeWithArgs(storyId)) },
                 modifier = Modifier
@@ -832,25 +849,6 @@ fun GeneratedStoryScreen(
             }
 
             Spacer(modifier = Modifier.width(8.dp))
-
-            NeuomorphicButton(
-                onClick = { handleVoiceRecommendation() },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(36.dp),
-                backgroundColor = Color(0xFFFEE566),
-                cornerRadius = 8.dp,
-                elevation = 4.dp
-            ) {
-                Text(
-                    text = "목소리 추천",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = Color.Black
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-
         }
 
         // 동화 텍스트 영역

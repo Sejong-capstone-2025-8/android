@@ -229,8 +229,9 @@ class GeneratedStoryViewModel : ViewModel() {
             val originalStoryId = _storyState.value.storyId
             val storyContent = _storyState.value.storyContent
 
-            // 새 동화 제목 생성
-            val newTitle = "${_storyState.value.storyTitle} (선택: ${selectedVoice.title})"
+            // 새 동화 제목 생성 0515 박찬우 변경사항
+            val baseTitle = _storyState.value.storyTitle.substringBefore(" (버전:")
+            val newTitle = "$baseTitle (버전: ${selectedVoice.title})"
 
             // TTS 서비스 초기화 확인
             if (ttsService == null) {
@@ -674,8 +675,9 @@ class GeneratedStoryViewModel : ViewModel() {
             val originalStoryId = _storyState.value.storyId
             val storyContent = _storyState.value.storyContent
 
-            // 새 동화 제목 생성
-            val newTitle = "${_storyState.value.storyTitle} (추천된 음성 버전)"
+            // 새 동화 제목 생성 0515 박찬우 변경사항
+            val baseTitle = _storyState.value.storyTitle.substringBefore(" (버전:")
+            val newTitle = "$baseTitle (버전: 추천된 음성)"
 
             // 로그 추가 - 추천된 음성 ID 확인
             Log.d(TAG, "Using recommended voice ID: ${recommendedVoice.voice_id}, title: ${recommendedVoice.title}")

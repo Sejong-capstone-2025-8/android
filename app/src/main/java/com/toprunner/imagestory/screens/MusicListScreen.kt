@@ -75,6 +75,10 @@ fun MusicListScreen(
     var selectedMusicPath by remember { mutableStateOf<String?>(null) }
     var selectedMusicId by remember { mutableStateOf<Long?>(null) }
 
+    // 0515 박찬우 변경사항
+    var currentBgmTitle by remember { mutableStateOf<String?>(null) }
+    val fairyTaleRepo = remember { FairyTaleRepository(context) }
+
     // DB 초기 로딩
     LaunchedEffect(Unit) {
         isLoading = true
@@ -82,6 +86,28 @@ fun MusicListScreen(
             musics = musicDao.getAllMusic()
         }
         isLoading = false
+        // 0515 박찬우 변경사항
+        if (storyId > 0L) {
+            withContext(Dispatchers.IO) {
+                // Pair<FairyTaleEntity, String> 반환 → 반드시 두 변수로 언패킹
+                val (storyEntity, storyContent) = fairyTaleRepo.getFairyTaleById(storyId)
+
+                // JSON 안에 저장된 bgmPath 꺼내기 (필드명: attribute)
+                val bgmPath = try {
+                    JSONObject(storyEntity.attribute)
+                        .optString("bgmPath", "")
+                } catch (_: Exception) {
+                    ""
+                }
+
+                // musicDao에 경로로 제목 조회 메서드가 있으면 그걸 쓰고, 없으면 getAllMusic() 후 필터
+                val music = if (bgmPath.isNotBlank()) {
+                    musicDao.getAllMusic().firstOrNull { it.music_path == bgmPath }
+                } else null
+
+                currentBgmTitle = music?.title
+            }
+        }
     }
 
     // File picker
@@ -368,6 +394,19 @@ fun MusicListScreen(
         }
 
         Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+        currentBgmTitle?.let { title ->
+            Text(
+                text = "현재 동화 배경음: $title",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.DarkGray,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         Box(modifier = Modifier.fillMaxSize()) {
             when {
