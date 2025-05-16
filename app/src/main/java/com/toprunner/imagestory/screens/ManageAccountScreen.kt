@@ -1,4 +1,4 @@
-package com.toprunner.imagestory
+package com.toprunner.imagestory.screens
 
 import android.util.Log
 import android.widget.Toast
@@ -37,7 +37,12 @@ import coil.compose.AsyncImage
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.toprunner.imagestory.R
 import com.toprunner.imagestory.navigation.NavRoute
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 
 @Composable
@@ -178,13 +183,13 @@ fun ManageAccountScreen(
             // 계정 생성 시간 (밀리초를 Date로 변환)
             val creationTime = it.metadata?.creationTimestamp?.let { timestamp ->
                 // Date 객체 생성
-                val date = java.util.Date(timestamp)
+                val date = Date(timestamp)
                 // 포맷터 생성 및 타임존 설정 (KST)
-                val sdf = java.text.SimpleDateFormat(
+                val sdf = SimpleDateFormat(
                     "yyyy-MM-dd HH:mm:ss",
-                    java.util.Locale.getDefault()
+                    Locale.getDefault()
                 ).apply {
-                    timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul")
+                    timeZone = TimeZone.getTimeZone("Asia/Seoul")
                 }
                 // 포맷 적용
                 sdf.format(date)

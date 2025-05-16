@@ -31,7 +31,7 @@ import com.toprunner.imagestory.R
 import com.toprunner.imagestory.data.database.AppDatabase
 import com.toprunner.imagestory.data.entity.MusicEntity
 import com.toprunner.imagestory.navigation.NavRoute
-import com.toprunner.imagestory.GeneratedStoryViewModel
+import com.toprunner.imagestory.viewmodel.GeneratedStoryViewModel
 import com.toprunner.imagestory.repository.FairyTaleRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -51,19 +51,15 @@ fun MusicListScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Room DB & DAO
     val db = remember { AppDatabase.getInstance(context) }
     val musicDao = remember { db.musicDao() }
 
-    // UI state
     var isLoading by remember { mutableStateOf(false) }
     var musics by remember { mutableStateOf<List<MusicEntity>>(emptyList()) }
 
-    // Playback state
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var playingId by remember { mutableStateOf<Long?>(null) }
 
-    // Dialog state for input
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
     var showDialog by remember { mutableStateOf(false) }
     var inputTitle by remember { mutableStateOf("") }
@@ -89,7 +85,7 @@ fun MusicListScreen(
         // 0515 박찬우 변경사항
         if (storyId > 0L) {
             withContext(Dispatchers.IO) {
-                // Pair<FairyTaleEntity, String> 반환 → 반드시 두 변수로 언패킹
+                // Pair<FairyTaleEntity, String> 반환 > 반드시 두 변수로 언패킹
                 val (storyEntity, storyContent) = fairyTaleRepo.getFairyTaleById(storyId)
 
                 // JSON 안에 저장된 bgmPath 꺼내기 (필드명: attribute)
@@ -110,7 +106,6 @@ fun MusicListScreen(
         }
     }
 
-    // File picker
     val pickAudioLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -141,12 +136,9 @@ fun MusicListScreen(
                 // 토스트 메시지로 사용자에게 알림
                 Toast.makeText(context, "배경음이 설정되었습니다.", Toast.LENGTH_SHORT).show()
 
-                // Save BGM path to story attributes if needed - This is optional but helps persistence
                 if (storyId > 0) {
-                    // You can add this logic to save BGM path to story attributes
                     scope.launch {
                         try {
-                            // This is optional - save BGM path to story attributes for persistence
                             val fairyTaleRepository = FairyTaleRepository(context)
                             val story = fairyTaleRepository.getFairyTaleById(storyId)?.first
                             if (story != null) {
@@ -183,7 +175,6 @@ fun MusicListScreen(
             Toast.makeText(context, "배경음을 선택해주세요.", Toast.LENGTH_SHORT).show()
         }
     }
-    // AlertDialog for title & genre input
     if (showDialog && pendingUri != null) {
         AlertDialog(
             onDismissRequest = { showDialog = false; pendingUri = null },
@@ -245,13 +236,11 @@ fun MusicListScreen(
                             scope.launch {
                                 isLoading = true
                                 withContext(Dispatchers.IO) {
-                                    // Copy to internal storage
                                     val filename = "music_${System.currentTimeMillis()}.mp3"
                                     val outFile = File(context.filesDir, filename)
                                     context.contentResolver.openInputStream(uri)?.use { input ->
                                         outFile.outputStream().use { output -> input.copyTo(output) }
                                     }
-                                    // Save to DB with user input
                                     val musicId = musicDao.insertMusic(
                                         MusicEntity(
                                             title = inputTitle.ifBlank { filename },
@@ -262,7 +251,6 @@ fun MusicListScreen(
                                     )
                                     musics = musicDao.getAllMusic()
 
-                                    // Set as selected music if adding for first time
                                     if (selectedMusicId == null) {
                                         selectedMusicPath = outFile.absolutePath
                                         selectedMusicId = musicId
@@ -346,7 +334,6 @@ fun MusicListScreen(
             }
         }
 
-        // Add Music Button
         Button(
             onClick = { pickAudioLauncher.launch("audio/*") },
             modifier = Modifier
@@ -507,7 +494,6 @@ fun MusicListScreen(
         }
     }
 
-    // Clean up on leaving screen
     DisposableEffect(Unit) {
         onDispose {
             mediaPlayer?.release()

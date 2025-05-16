@@ -39,9 +39,7 @@ fun BottomNavBar(navController: NavController) {
     NavigationBar(
         modifier = Modifier
             .fillMaxWidth(),
-            //.height(60.dp),
-            //.navigationBarsPadding() // 시스템 내비게이션 영역에 대한 패딩 추가
-            //.background(Color.White),
+
         containerColor = Color.White
     ) {
         items.forEach { (route, iconResId, label) ->

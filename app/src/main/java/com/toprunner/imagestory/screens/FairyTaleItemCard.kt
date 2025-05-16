@@ -63,10 +63,6 @@ fun FairyTaleItemCard(
     val isSelectedVoiceVersion = attributes.optBoolean("isSelectedVoiceVersion", false)
     val creationMethod = attributes.optString("creationMethod", "")
 
-
-
-
-
     // 인터랙션 상태를 추적하기 위한 소스 생성
     val interactionSource = remember { MutableInteractionSource() }
 

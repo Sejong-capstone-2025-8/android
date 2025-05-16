@@ -17,9 +17,7 @@ class FairyTaleRepository(private val context: Context) {
     private val fairyTaleDao: FairyTaleDao = AppDatabase.getInstance(context).fairyTaleDao()
     private val fileStorageManager = FileStorageManager()
 
-    /**
-     * 새로운 동화 저장
-     */
+
     suspend fun saveFairyTale(
         title: String,
         voiceId: Long,
@@ -78,10 +76,6 @@ class FairyTaleRepository(private val context: Context) {
         }
     }
 
-    /**
-     * 추천된 음성으로 동화를 복제합니다.
-     * 기존 동화의 정보를 유지하되 제목과 음성만 변경합니다.
-     */
     suspend fun createStoryWithRecommendedVoice(
         originalStoryId: Long,
         recommendedVoiceId: Long,

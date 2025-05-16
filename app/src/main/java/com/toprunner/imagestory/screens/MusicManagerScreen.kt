@@ -35,19 +35,15 @@ fun MusicManagerScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Room DB & DAO
     val db = remember { AppDatabase.getInstance(context) }
     val musicDao = remember { db.musicDao() }
 
-    // UI state
     var isLoading by remember { mutableStateOf(false) }
     var musics by remember { mutableStateOf<List<MusicEntity>>(emptyList()) }
 
-    // Playback state
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var playingId by remember { mutableStateOf<Long?>(null) }
 
-    // Dialog state for input
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
     var showDialog by remember { mutableStateOf(false) }
     var inputTitle by remember { mutableStateOf("") }
@@ -142,7 +138,6 @@ fun MusicManagerScreen() {
                                     context.contentResolver.openInputStream(uri)?.use { input ->
                                         outFile.outputStream().use { output -> input.copyTo(output) }
                                     }
-                                    // Save to DB with user input
                                     musicDao.insertMusic(
                                         MusicEntity(
                                             title = inputTitle.ifBlank { filename },

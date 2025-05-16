@@ -1,9 +1,6 @@
 package com.toprunner.imagestory
 
-import com.toprunner.imagestory.LoginScreen
-import com.toprunner.imagestory.RegisterScreen
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
@@ -14,7 +11,6 @@ import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,11 +34,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.common.api.ApiException
 import com.toprunner.imagestory.controller.StoryCreationController
 import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.navigation.NavRoute
@@ -62,8 +56,7 @@ import java.util.*
 
 import com.toprunner.imagestory.controller.StoryGenerationException
 import com.toprunner.imagestory.controller.VoiceGenerationException
-import com.toprunner.imagestory.navigation.NavRoute.firstScreen
-import com.toprunner.imagestory.util.NetworkUtil
+import com.toprunner.imagestory.viewmodel.GeneratedStoryViewModel
 
 class MainActivity : ComponentActivity() {
 

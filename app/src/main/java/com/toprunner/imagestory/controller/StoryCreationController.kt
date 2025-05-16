@@ -72,11 +72,7 @@ class StoryCreationController(private val context: Context) {
                 Log.e(TAG, "GPT 오류(기타): ${e.message}", e)
                 throw StoryGenerationException("동화 생성 중 오류가 발생했습니다: ${e.message}")
             }
-//            val gptResponse = gptService.generateStory(image, englishTheme)
             Log.d(TAG, "GPT API returned response successfully")
-
-            // 동화 내용 처리
-            //val storyData = parseStoryResponse(gptResponse)
 
             // 이후 storyData 사용
             val title = storyData.title
@@ -99,10 +95,8 @@ class StoryCreationController(private val context: Context) {
                 generateAudio(storyData.text, voiceRepository.recommendVoice(englishTheme, voiceFeatures))
             } catch (e: Exception) {
                 Log.e(TAG, "TTS 오류: ${e.message}", e)
-                // 이 부분에서 “목소리 생성 중 오류”라는 메시지를 담아서 던집니다.
                 throw VoiceGenerationException("목소리 생성 중 오류가 발생했습니다.")
             }
-//            val audioData = generateAudio(storyText, voiceId)
             Log.d(TAG, "Audio generated successfully, size: ${audioData.size} bytes")
 
             // 이미지 저장 및 ID 획득

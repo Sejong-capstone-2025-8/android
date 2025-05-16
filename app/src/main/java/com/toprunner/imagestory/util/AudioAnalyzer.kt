@@ -9,7 +9,7 @@ import be.tarsos.dsp.io.jvm.AudioDispatcherFactory
 import be.tarsos.dsp.pitch.PitchDetectionHandler
 import be.tarsos.dsp.pitch.PitchProcessor
 import be.tarsos.dsp.mfcc.MFCC
-import com.toprunner.imagestory.SimpleAudioAnalyzer
+import com.toprunner.imagestory.util.SimpleAudioAnalyzer
 import com.toprunner.imagestory.model.VoiceFeatures
 import java.io.File
 import java.io.FileInputStream

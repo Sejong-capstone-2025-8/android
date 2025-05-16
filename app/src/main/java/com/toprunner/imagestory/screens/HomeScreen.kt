@@ -43,7 +43,6 @@ import com.toprunner.imagestory.R
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.text.font.Font
 
-
 @Composable
 fun HomeScreen(
     capturedImageBitmap: Bitmap?,
@@ -53,10 +52,10 @@ fun HomeScreen(
     onPickImageClicked: () -> Unit,
     onThemeSelected: (String) -> Unit,
     onGenerateStoryClicked: () -> Unit,
-    onGenerateWithFineTunedModelClicked: () -> Unit, // 추가: 파인튜닝 모델 생성 콜백
+    onGenerateWithFineTunedModelClicked: () -> Unit,
 
-    errorMessage: String?,           // ← 에러 메시지
-    onErrorDismiss: () -> Unit,      // ← 다이얼로그 닫기 콜백
+    errorMessage: String?,
+    onErrorDismiss: () -> Unit,
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
     val themeOptions = remember { listOf("판타지", "사랑", "SF", "공포", "코미디","비극") }

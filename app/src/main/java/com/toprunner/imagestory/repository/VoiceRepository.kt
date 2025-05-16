@@ -2,7 +2,7 @@ package com.toprunner.imagestory.repository
 
 import android.content.Context
 import android.util.Log
-import com.toprunner.imagestory.SimpleAudioAnalyzer
+import com.toprunner.imagestory.util.SimpleAudioAnalyzer
 import com.toprunner.imagestory.util.FileStorageManager
 import com.toprunner.imagestory.data.dao.VoiceDao
 import com.toprunner.imagestory.data.database.AppDatabase

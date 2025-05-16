@@ -3,7 +3,7 @@ package com.toprunner.imagestory.service
 import android.content.Context
 import android.util.Log
 import com.toprunner.imagestory.BuildConfig
-import com.toprunner.imagestory.SimpleAudioAnalyzer
+import com.toprunner.imagestory.util.SimpleAudioAnalyzer
 import com.toprunner.imagestory.model.VoiceFeatures
 import com.toprunner.imagestory.repository.VoiceRepository
 import com.toprunner.imagestory.util.AudioAnalyzer
@@ -116,12 +116,6 @@ class VoiceCloneService(private val context: Context) {
                 return@withContext Pair(false, "샘플 오디오 생성에 실패했습니다.")
             }
 
-//            // 10... 샘플값은 나중을 위해 남겨둠
-//            val voiceFeatures = VoiceFeatures(
-//                averagePitch = 120.0, // 기본값 사용
-//                pitchStdDev = 15.0,   // 기본값 사용
-//                mfccValues = listOf(DoubleArray(13) { 0.0 }) // 기본값 사용
-//            )
             // 10.TarsosDSP를 사용하여 원본 음성 파일 분석
             val simpleAnalyzer = SimpleAudioAnalyzer(context)
             Log.d(TAG, "Analyzing source voice file: $sourceVoicePath")

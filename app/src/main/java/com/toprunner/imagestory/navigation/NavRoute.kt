@@ -29,9 +29,3 @@ sealed class NavRoute(val route: String) {
     object VoiceRecording : NavRoute("voice_recording")
 }
 
-//object GeneratedStory : NavRoute("generated_story/{storyId}") {
-//    fun createRoute(storyId: Long) = "generated_story_screen/$storyId"
-//}
-//    object GeneratedStory : NavRoute("generated_story_screen/{storyId}") {
-//        fun routeWithArgs(storyId: Long): String = "generated_story_screen/$storyId"
-//    }

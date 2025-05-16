@@ -1,4 +1,4 @@
-package com.toprunner.imagestory
+package com.toprunner.imagestory.viewmodel
 
 import android.content.ContentValues.TAG
 import android.content.Context
@@ -17,6 +17,7 @@ import com.toprunner.imagestory.repository.TextRepository
 import com.toprunner.imagestory.repository.VoiceRepository
 import com.toprunner.imagestory.service.TTSService
 import com.toprunner.imagestory.util.VoiceFeaturesUtil
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -596,7 +597,7 @@ class GeneratedStoryViewModel : ViewModel() {
                     _playbackProgress.value = 0f
                     break
                 }
-                kotlinx.coroutines.delay(100) // 100ms마다 업데이트
+                delay(100) // 100ms마다 업데이트
             }
         }
     }

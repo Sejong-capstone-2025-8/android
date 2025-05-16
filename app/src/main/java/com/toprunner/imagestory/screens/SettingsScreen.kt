@@ -38,7 +38,7 @@ fun SettingsScreen(
     navController: NavController,
     onLogoutClicked: () -> Unit // onLogoutClicked를 외부에서 전달받음
 ) {
-    val backgroundColor = Color(0xFFFFFBF0) // Light cream background color
+    val backgroundColor = Color(0xFFFFFBF0)
 
     val customFontFamily = FontFamily(
         Font(R.font.font)  // OTF 파일을 참조
@@ -49,7 +49,6 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(backgroundColor)
     ) {
-        // Top Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -77,8 +76,6 @@ fun SettingsScreen(
 
             }
         }
-
-        // Settings items
         SettingsItemCard(
             icon = R.drawable.ic_account,
             title = "계정 정보 관리",
@@ -127,7 +124,6 @@ fun SettingsScreen(
                     Column {
                         developerEmails.forEach { email ->
                             TextButton(onClick = {
-                                //showDialog = false
                             }) {
                                 Text(
                                     text = email,
@@ -162,11 +158,6 @@ fun SettingsScreen(
             )
         }
 
-
-
-
-
-        // Version info
         Box(
             modifier = Modifier
                 .fillMaxWidth()

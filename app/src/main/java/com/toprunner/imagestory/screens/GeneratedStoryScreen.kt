@@ -1,4 +1,4 @@
-package com.toprunner.imagestory
+package com.toprunner.imagestory.screens
 
 import android.annotation.SuppressLint
 import android.util.Log
@@ -6,9 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,26 +21,23 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.toprunner.imagestory.R
 import com.toprunner.imagestory.navigation.NavRoute
 import com.toprunner.imagestory.ui.components.VoiceRecommendationDialog
 import com.toprunner.imagestory.viewmodel.FairyTaleViewModel
-import com.toprunner.imagestory.GeneratedStoryViewModel
+import com.toprunner.imagestory.viewmodel.GeneratedStoryViewModel
 import com.toprunner.imagestory.data.entity.VoiceEntity
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.toprunner.imagestory.repository.FairyTaleRepository
 import com.toprunner.imagestory.model.VoiceFeatures
-import com.toprunner.imagestory.screens.NeuomorphicButton
 import com.toprunner.imagestory.service.GPTService
 import com.toprunner.imagestory.ui.components.VoiceSelectionDialog
 import kotlinx.coroutines.CoroutineScope
@@ -56,7 +51,7 @@ fun GeneratedStoryScreen(
     storyId: Long,
     bgmPath: String? = null,
     navController: NavController,
-    generatedStoryViewModel: GeneratedStoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    generatedStoryViewModel: GeneratedStoryViewModel = viewModel(),
     fairyTaleViewModel: FairyTaleViewModel? = null,
     fairyTaleRepository: FairyTaleRepository
 ) {
@@ -128,10 +123,7 @@ fun GeneratedStoryScreen(
             conversationHistory.add("동화 챗봇: 안녕하세요! 무엇을 도와드릴까요?")
         }
     }
-    /* // 동화 로드
-     LaunchedEffect(storyId) {
-         generatedStoryViewModel.loadStory(storyId, context)
-     }*/
+
     var isLoading by remember { mutableStateOf(false) }
     // 챗봇 다이얼로그
     if (showChatbotDialog) {
@@ -148,45 +140,7 @@ fun GeneratedStoryScreen(
             },
             onDismiss            = { showChatbotDialog = false }
         )
-        /*
-        AlertDialog(
-            onDismissRequest = { showChatbotDialog = false },
-            title = { Text("동화 챗봇") },
-            text = {
-                Column {
-                    // 과거 대화 내역을 표시
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(conversationHistory) { message ->
-                            Text(
-                                text = message,
-                                fontSize = 16.sp,
-                                color = Color.Black,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        }
-                    }
-                    TextField(
-                        value = userMessage,
-                        onValueChange = { userMessage = it },
-                        label = { Text("질문을 입력하세요") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = { handleChatbot() }) {
-                        Text("질문하기")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    /*if (chatbotResponse.isNotEmpty()) {
-                        Text("답변: $chatbotResponse")
-                    }*/
-                }
-            },
-            confirmButton = {
-                Button(onClick = { showChatbotDialog = false }) {
-                    Text("닫기")
-                }
-            }
-        )*/
+
     }
 
     if (showFallbackDialog) {

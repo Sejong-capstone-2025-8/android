@@ -541,10 +541,6 @@ fun VoiceListScreen(
                     PremiumVoiceCloneLoadingDialog()
                 }
             }
-
-
-
-            // 특징 로딩 표시기
             // 음성 특징 로딩 표시기
             if (isLoadingFeatures) {
                 Dialog(onDismissRequest = {}) { // 로딩 중에는 닫기 비활성화

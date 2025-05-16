@@ -43,8 +43,7 @@ class GPTService {
                 body    = requestBody
             )
             Log.d(TAG, "GPT API raw response (code=$statusCode): $response")
-//            validateResponse(response) // 응답 검증 개선
-//            response
+
             when (statusCode) {
                 401, 403           -> throw StoryGenerationException("API 키가 잘못되었습니다.")
                 in 500..599        -> throw StoryGenerationException("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
@@ -121,7 +120,7 @@ class GPTService {
                 put("model", "gpt-4o")
                 put("messages", messages)
                 put("max_tokens", 500)  // 응답 길이를 제한
-                put("temperature", 0.7)                  // 창의성과 일관성 절충
+                put("temperature", 0.7) // 창의성과 일관성 절충
             }
 
             // 실제 API 호출

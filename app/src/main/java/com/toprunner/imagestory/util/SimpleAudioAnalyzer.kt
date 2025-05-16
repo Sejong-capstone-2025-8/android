@@ -1,26 +1,22 @@
-package com.toprunner.imagestory
+package com.toprunner.imagestory.util
 
 import android.content.Context
+import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import android.media.MediaCodec
 import android.util.Log
+import com.toprunner.imagestory.model.VoiceFeatures
 import java.io.File
-import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.ShortBuffer
-import kotlin.math.abs
-import kotlin.math.log10
-import kotlin.math.pow
-import kotlin.math.sqrt
-import kotlin.math.cos
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.ln
+import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.exp
-import com.toprunner.imagestory.model.VoiceFeatures
+import kotlin.math.pow
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 class SimpleAudioAnalyzer(private val context: Context) {
     private val TAG = "SimpleAudioAnalyzer"

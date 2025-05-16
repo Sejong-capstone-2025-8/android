@@ -1,5 +1,6 @@
-package com.toprunner.imagestory
+package com.toprunner.imagestory.screens
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
@@ -25,9 +26,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.toprunner.imagestory.R
 
 @Composable
 fun EditAccountScreen(navController: NavController) {
@@ -172,11 +175,11 @@ fun EditAccountScreen(navController: NavController) {
 }
 
 private fun updateUserProfile(
-    user: com.google.firebase.auth.FirebaseUser,
+    user: FirebaseUser,
     username: String,
     photoUri: Uri?,
     db: FirebaseFirestore,
-    context: android.content.Context,
+    context: Context,
     navController: NavController,
     onComplete: () -> Unit
 ) {
