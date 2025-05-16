@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onRegisterClick: () -> Unit,
     onGoogleLoginClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -170,6 +171,13 @@ fun LoginScreen(
                 modifier = Modifier.size(24.dp),
                 tint = Color.Unspecified
             )
+
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        //회원가입 버튼
+        TextButton(onClick = onRegisterClick) {
+            Text("회원가입",color = Color.Gray)
 
         }
     }

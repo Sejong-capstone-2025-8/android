@@ -19,6 +19,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import com.toprunner.imagestory.controller.StoryGenerationException
 import com.toprunner.imagestory.controller.VoiceGenerationException
+import org.json.JSONArray
 
 class StoryCreationController(private val context: Context) {
     private val TAG = "StoryCreationController"
@@ -292,30 +293,201 @@ class StoryCreationController(private val context: Context) {
                 var content = message.optString("content", "")
 
                 // JSON 코드블럭 제거
-                if (content.startsWith("```json")) {
-                    content = content.removePrefix("```json").removeSuffix("```").trim()
+                if (content.contains("```json")) {
+                    content = content.substringAfter("```json").substringBefore("```").trim()
+                } else if (content.contains("```")) {
+                    content = content.substringAfter("```").substringBefore("```").trim()
                 }
 
-                val storyJson = JSONObject(content)
-
-                return Story(
-                    title = storyJson.getString("title"),
-                    theme = storyJson.getString("theme"),
-                    text = storyJson.getString("text"),
-                    averagePitch = storyJson.getDouble("averagePitch"),
-                    pitchStdDev = storyJson.getDouble("pitchStdDev"),
-                    mfccValues = (0 until storyJson.getJSONArray("mfccValues").length()).map { i ->
-                        storyJson.getJSONArray("mfccValues").getJSONArray(i).let { innerArray ->
-                            List(innerArray.length()) { innerArray.getDouble(it) }
+                try {
+                    // 일반 JSON 파싱 시도
+                    val storyJson = JSONObject(content)
+                    return Story(
+                        title = storyJson.optString("title", "자동 생성된 동화"),
+                        theme = storyJson.optString("theme", "fantasy"),
+                        text = storyJson.optString("text", "동화 내용이 없습니다."),
+                        averagePitch = storyJson.optDouble("averagePitch", 120.0),
+                        pitchStdDev = storyJson.optDouble("pitchStdDev", 15.0),
+                        mfccValues = try {
+                            val mfccArray = storyJson.optJSONArray("mfccValues") ?: JSONArray()
+                            (0 until mfccArray.length()).map { i ->
+                                mfccArray.getJSONArray(i).let { innerArray ->
+                                    List(innerArray.length()) { innerArray.getDouble(it) }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // 기본 MFCC 값 제공
+                            listOf(List(13) { 0.0 })
                         }
-                    }
-                )
+                    )
+                } catch (e: Exception) {
+                    // JSON 파싱 실패 시 텍스트 내에서 정보 추출 시도
+                    Log.e("GPTService", "JSON 파싱 실패, 텍스트에서 추출 시도: ${e.message}")
+
+                    // 기본 값 설정
+                    val title = extractTitle(content) ?: "자동 생성된 동화"
+                    val text = content.replace("```", "").trim()
+
+                    return Story(
+                        title = title,
+                        theme = "fantasy", // 기본 테마
+                        text = text,
+                        averagePitch = 120.0, // 기본값
+                        pitchStdDev = 15.0,  // 기본값
+                        mfccValues = listOf(List(13) { 0.0 }) // 기본 MFCC 값
+                    )
+                }
             } else {
                 throw JSONException("No choices found in GPT response")
             }
         } catch (e: JSONException) {
-            Log.e(TAG, "Error parsing GPT response: ${e.message}", e)
+            Log.e("GPTService", "Error parsing GPT response: ${e.message}", e)
             throw e
         }
+    }
+
+    // 텍스트에서 제목 추출 시도하는 헬퍼 함수
+    private fun extractTitle(content: String): String? {
+        // 제목 패턴 찾기 시도 (여러 가능한 포맷)
+        val titlePatterns = listOf(
+            "제목:\\s*(.+?)\\s*\\n",
+            "title:\\s*\"?(.+?)\"?\\s*\\n",
+            "# (.+?)\\s*\\n",
+            "(.+?)\\s*\\n" // 첫 줄을 제목으로 간주
+        )
+
+        for (pattern in titlePatterns) {
+            val regex = Regex(pattern, RegexOption.IGNORE_CASE)
+            val match = regex.find(content)
+            if (match != null) {
+                return match.groupValues[1].trim()
+            }
+        }
+
+        return null
+    }
+
+    // StoryCreationController.kt에 추가
+    suspend fun createStoryWithFineTunedModel(theme: String): Long = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Starting story creation with fine-tuned model, theme: $theme")
+
+            // 테마 매핑 (한글 -> 영어)
+            val englishTheme = when (theme) {
+                "판타지" -> "fantasy"
+                "사랑" -> "love"
+                "SF" -> "sf"
+                "공포" -> "horror"
+                "코미디" -> "comedy"
+                "비극" -> "tragedy"
+                else -> "fantasy" // 기본값
+            }
+
+            val storyData = try {
+                val gptResponse = gptService.generateStoryWithFineTunedModel(englishTheme)
+                try {
+                    parseStoryResponse(gptResponse)
+                } catch (e: Exception) {
+                    Log.e(TAG, "응답 파싱 오류, 기본 동화 사용: ${e.message}", e)
+                    // 파싱 실패 시 기본 동화 객체 생성
+                    Story(
+                        title = "파인튜닝 모델 동화",
+                        theme = englishTheme,
+                        text = "옛날 옛적에 작은 마을에 착한 아이가 살았습니다. 그 아이는 항상 다른 사람들을 도와주려고 했고, 모두에게 친절했습니다. 어느 날, 아이는 숲속을 걷다가 길을 잃은 작은 새를 발견했습니다. 아이는 새를 집으로 데려와 정성껏 돌봐주었습니다. 며칠 후, 새의 날개가 나아 하늘로 날아갔습니다. 그리고 매년 봄이 되면, 그 새는 아이를 찾아와 감사의 노래를 불러주었답니다.",
+                        averagePitch = 150.0,
+                        pitchStdDev = 15.0,
+                        mfccValues = listOf(List(13) { 0.0 })
+                    )
+                }
+            } catch (e: StoryGenerationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "GPT 오류(기타): ${e.message}", e)
+                throw StoryGenerationException("동화 생성 중 오류가 발생했습니다: ${e.message}")
+            }
+
+            // 동화 내용 처리
+            val title = storyData.title
+            val storyText = storyData.text
+            val voiceFeatures = VoiceFeatures(
+                averagePitch = storyData.averagePitch,
+                pitchStdDev = storyData.pitchStdDev,
+                mfccValues = storyData.mfccValues.map { it.toDoubleArray() }
+            )
+
+            Log.d(TAG, "Processed story with title: $title and text length: ${storyText.length}")
+            Log.d(TAG, "Extracted voice features: $voiceFeatures")
+
+            // 동화에 적합한 음성 추천
+            val voiceId = voiceRepository.recommendVoice(englishTheme, voiceFeatures)
+            Log.d(TAG, "Recommended voice ID: $voiceId")
+
+            // 추천된 음성으로 오디오 생성
+            Log.d(TAG, "Generating audio for story")
+            val audioData = try {
+                generateAudio(storyData.text, voiceId)
+            } catch (e: Exception) {
+                Log.e(TAG, "TTS 오류: ${e.message}", e)
+                throw VoiceGenerationException("목소리 생성 중 오류가 발생했습니다.")
+            }
+
+            Log.d(TAG, "Audio generated successfully, size: ${audioData.size} bytes")
+
+            // 기본 이미지 사용 (파인튜닝 모델에는 이미지가 없으므로 더미 이미지 생성)
+            val dummyBitmap = createDummyImage()
+
+            // 이미지 저장 및 ID 획득
+            val imageId = imageRepository.saveImage(context, title, dummyBitmap)
+            Log.d(TAG, "Default image saved with ID: $imageId")
+
+            // 텍스트 저장 및 ID 획득
+            val textId = textRepository.saveText(context, storyText)
+            Log.d(TAG, "Text saved with ID: $textId")
+
+            // 임시 기본값 음악 ID (실제 구현에서는 적절한 음악 선택 필요)
+            val defaultMusicId = 1L
+
+            // 동화 저장 및 ID 반환
+            val fairyTaleId = fairyTaleRepository.saveFairyTale(
+                title = title,
+                voiceId = voiceId,
+                imageId = imageId,
+                textId = textId,
+                musicId = defaultMusicId,
+                theme = englishTheme,
+                audioData = audioData,
+                voiceFeatures = voiceFeatures
+            )
+
+            Log.d(TAG, "Fairy tale saved with ID: $fairyTaleId")
+            fairyTaleId
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in fine-tuned story creation: ${e.message}", e)
+            throw e
+        }
+    }
+
+    // 더미 이미지 생성 함수 추가
+    private fun createDummyImage(): Bitmap {
+        val width = 512
+        val height = 512
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+
+        // 배경색 설정
+        val paint = android.graphics.Paint()
+        paint.color = android.graphics.Color.rgb(255, 250, 240) // 연한 크림색
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+
+        // 텍스트 설정
+        paint.color = android.graphics.Color.rgb(100, 100, 100)
+        paint.textSize = 40f
+        paint.textAlign = android.graphics.Paint.Align.CENTER
+
+        // 텍스트 그리기
+        canvas.drawText("파인튜닝 모델로 생성된 동화", width / 2f, height / 2f - 20, paint)
+        canvas.drawText("(이미지 없음)", width / 2f, height / 2f + 40, paint)
+
+        return bitmap
     }
 }

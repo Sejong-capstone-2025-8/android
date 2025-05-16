@@ -261,4 +261,82 @@ class GPTService {
         }
         """.trimIndent()
     }
+    suspend fun generateStoryWithFineTunedModel(theme: String): String = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "파인튜닝 모델로 동화를 생성 중: $theme")
+
+            // 테마 매핑 - 기존 함수와 동일
+            val themePrompt = when (theme) {
+                "fantasy" -> "한국어로 판타지 장르의 동화를 만들어주세요."
+                "love" -> "한국어로 사랑에 관한 동화를 만들어주세요."
+                "sf" -> "한국어로 공상과학(SF) 장르의 동화를 만들어주세요."
+                "horror" -> "한국어로 무서운 요소가 있지만 아이들이 읽을 수 있는 약간 스릴 있는 동화를 만들어주세요."
+                "comedy" -> "한국어로 유머러스하고 재미있는 동화를 만들어주세요."
+                "tragedy" -> "한국어로 슬프지만 교훈이 있는 비극적인 동화를 만들어주세요."
+                else -> "한국어로 어린이를 위한 동화를 만들어주세요."
+            }
+
+            // 동화 생성에 필요한 상세 프롬프트 작성 (JSON 출력 형식을 명시)
+            val detailedPrompt = """
+        $themePrompt
+
+        아래의 요구사항에 따라 동화를 생성해주세요:
+        1. 결과는 반드시 JSON 형식의 객체여야 합니다.
+        2. JSON 객체는 다음 키들을 포함해야 합니다: "title" (문자열), "theme" (문자열, (fantasy,love,sf,horror,comedy 중 하나)), "text" (문자열), "averagePitch" (실수), "pitchStdDev" (실수), "mfccValues" (숫자 배열들의 배열, 각 내부 배열은 13개의 숫자를 포함).
+        3. 추가적인 설명이나 부가 텍스트 없이 오직 JSON 객체만 출력해야 합니다.
+        4. 모든 숫자 값에는 표준 ASCII 문자만 사용하세요. 특히 마이너스 기호는 일반 하이픈 '-'를 사용하세요.
+        5. 동화 텍스트는 300 단어에서 500 단어 사이의 분량으로 작성해주세요.
+        """.trimIndent()
+
+            // messages 배열 구성
+            val messages = JSONArray().apply {
+                // 시스템 메시지 추가
+                put(
+                    JSONObject().apply {
+                        put("role", "system")
+                        put("content", "당신은 창의적인 천재적인 작가입니다. 제공된 테마를 기반으로 동화를 생성하세요. 출력은 다음 키를 포함하는 유효한 JSON 객체여야 합니다: title, theme, text, averagePitch, pitchStdDev, mfccValues. 추가 설명을 포함하지 마세요.")
+                    }
+                )
+                // 사용자 메시지 추가
+                put(
+                    JSONObject().apply {
+                        put("role", "user")
+                        put("content", detailedPrompt)
+                    }
+                )
+            }
+
+            // 파인튜닝 모델 사용
+            val requestObj = JSONObject().apply {
+                put("model", "ft:gpt-3.5-turbo-1106:personal::BVGbWaMn") // 파인튜닝 모델 ID 사용
+                put("messages", messages)
+                put("max_tokens", 2000)
+            }
+
+            // API 호출
+            val (response, statusCode) = networkUtil.sendHttpRequest(
+                url = API_URL,
+                method = "POST",
+                headers = mapOf(
+                    "Content-Type" to "application/json",
+                    "Authorization" to "Bearer $API_KEY"
+                ),
+                body = requestObj.toString()
+            )
+
+            // 결과 검증 및 반환
+            when (statusCode) {
+                401, 403 -> throw StoryGenerationException("API 키가 잘못되었습니다.")
+                in 500..599 -> throw StoryGenerationException("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
+                !in 200..299 -> throw StoryGenerationException("알 수 없는 오류가 발생했습니다 (code=$statusCode).")
+            }
+
+            return@withContext response
+        } catch (e: StoryGenerationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating story with fine-tuned model: ${e.message}", e)
+            throw StoryGenerationException("파인튜닝 모델로 동화 생성 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
 }

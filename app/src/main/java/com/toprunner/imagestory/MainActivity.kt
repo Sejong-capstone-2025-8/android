@@ -196,6 +196,8 @@ class MainActivity : ComponentActivity() {
                                 onPickImageClicked = { checkStoragePermissionAndOpenGallery() },
                                 onThemeSelected = { theme -> selectedTheme = theme },
                                 onGenerateStoryClicked = { startStoryCreation(navController) },
+                                onGenerateWithFineTunedModelClicked = { startStoryCreationWithFineTunedModel(navController) }, // 추가
+
                                 errorMessage          = errorMessage,            // ← 전달
                                 onErrorDismiss        = { errorMessage = null }, // ← 닫기
                             )
@@ -220,6 +222,9 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate(NavRoute.Home.route) {
                                             popUpTo(NavRoute.Login.route) { inclusive = true }
                                         }
+                                    },
+                                    onRegisterClick = {
+                                        navController.navigate(NavRoute.Register.route)
                                     },
                                     onGoogleLoginClick = {
                                         navController.navigate(NavRoute.Home.route) {
@@ -589,6 +594,46 @@ class MainActivity : ComponentActivity() {
             }
         }
         */
+    }
+
+    private fun startStoryCreationWithFineTunedModel(navController: androidx.navigation.NavController) {
+        if (selectedTheme == null) {
+            Toast.makeText(this, "테마를 선택해주세요", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        isLoading = true
+
+        lifecycleScope.launch(Dispatchers.Default) {
+            try {
+                val theme = selectedTheme ?: throw IllegalStateException("테마가 선택되지 않았습니다")
+
+                // 파인튜닝 모델로 동화 생성 작업
+                withContext(Dispatchers.IO) {
+                    Log.d("MainActivity", "Starting story creation with fine-tuned model, theme: $theme")
+                    val storyId = storyCreationController.createStoryWithFineTunedModel(theme)
+                    Log.d("MainActivity", "Story created successfully with ID: $storyId")
+
+                    // UI 작업은 Main 스레드에서 수행
+                    withContext(Dispatchers.Main) {
+                        isLoading = false
+                        // 생성된 동화 화면으로 네비게이션
+                        navController.navigate(NavRoute.GeneratedStory.createRoute(storyId))
+                    }
+                }
+            } catch (e: Exception) {
+                // UI 작업은 Main 스레드에서 수행
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    Log.d("MainActivity", "errorMessage 에 세팅될 메시지: ${e.javaClass.simpleName} / ${e.message}")
+                    errorMessage = when (e) {
+                        is StoryGenerationException -> e.message
+                        is VoiceGenerationException -> e.message
+                        else -> "알 수 없는 오류가 생겼어요!!"
+                    }
+                }
+            }
+        }
     }
 
 }

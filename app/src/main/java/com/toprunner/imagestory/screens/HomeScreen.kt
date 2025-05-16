@@ -53,6 +53,7 @@ fun HomeScreen(
     onPickImageClicked: () -> Unit,
     onThemeSelected: (String) -> Unit,
     onGenerateStoryClicked: () -> Unit,
+    onGenerateWithFineTunedModelClicked: () -> Unit, // 추가: 파인튜닝 모델 생성 콜백
 
     errorMessage: String?,           // ← 에러 메시지
     onErrorDismiss: () -> Unit,      // ← 다이얼로그 닫기 콜백
@@ -317,23 +318,50 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 동화 생성하기 버튼
-                NeuomorphicButton(
-                    onClick = { onGenerateStoryClicked() },
+                // 버튼들을 가로로 배치하기 위한 Row
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    backgroundColor = Color(0xFFFFD166),
-                    elevation = 8.dp,
-                    enabled = !isLoading && capturedImageBitmap != null && selectedTheme != null
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp) // 버튼 사이 간격
                 ) {
-                    Text(
-                        text = "동화 생성하기",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = if (!isLoading && capturedImageBitmap != null && selectedTheme != null)
-                            Color(0xFF3F2E20) else Color.Gray
-                    )
+                    // 동화 생성하기 버튼
+                    NeuomorphicButton(
+                        onClick = { onGenerateStoryClicked() },
+                        modifier = Modifier
+                            .weight(1f) // 공간을 균등하게 나눔
+                            .height(56.dp),
+                        backgroundColor = Color(0xFFFFD166),
+                        elevation = 8.dp,
+                        enabled = !isLoading && capturedImageBitmap != null && selectedTheme != null
+                    ) {
+                        Text(
+                            text = "동화 생성하기",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = if (!isLoading && capturedImageBitmap != null && selectedTheme != null)
+                                Color(0xFF3F2E20) else Color.Gray
+                        )
+                    }
+
+                    // 파인튜닝 모델로 생성 버튼
+                    NeuomorphicButton(
+                        onClick = { onGenerateWithFineTunedModelClicked() },
+                        modifier = Modifier
+                            .weight(1f) // 공간을 균등하게 나눔
+                            .height(56.dp),
+                        backgroundColor = Color(0xFFE9D364),
+                        elevation = 8.dp,
+                        enabled = !isLoading && capturedImageBitmap != null && selectedTheme != null
+                    ) {
+                        Text(
+                            text = "파인튜닝 모델로 생성",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp, // 글씨 크기 약간 줄임
+                            color = if (!isLoading && capturedImageBitmap != null && selectedTheme != null)
+                                Color(0xFF3F2E20) else Color.Gray
+                        )
+                    }
                 }
             }
 
