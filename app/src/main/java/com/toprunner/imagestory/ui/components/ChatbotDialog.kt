@@ -1,8 +1,7 @@
 package com.toprunner.imagestory.ui.components
 
-
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import android.Manifest
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,25 +11,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.ExperimentalMaterial3Api
-
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -38,9 +32,13 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.OutlinedTextField as M2OutlinedTextField
 import androidx.compose.material.TextFieldDefaults as M2TextFieldDefaults
 import androidx.compose.material.Text as M2Text
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.toprunner.imagestory.R
+import com.toprunner.imagestory.util.VoiceChatHelper
 
-@OptIn(ExperimentalMaterial3Api::class)
-
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun ChatbotDialog(
     conversationHistory: List<String>,
@@ -48,11 +46,75 @@ fun ChatbotDialog(
     isLoading: Boolean,
     onMessageChange: (String) -> Unit,
     onSend: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onSpeakResponse: (String) -> Unit = {}, // 챗봇 응답을 음성으로 읽기 위한 콜백
+    onStartVoiceConversation: () -> Unit = {} // 음성 대화 모드 시작 콜백
 ) {
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
 
-    Dialog(onDismissRequest = {},
+    // 마이크 권한 상태
+    val microphonePermissionState = rememberPermissionState(permission = Manifest.permission.RECORD_AUDIO)
+
+    // 음성 관련 상태
+    var isListening by remember { mutableStateOf(false) }
+    var voiceError by remember { mutableStateOf<String?>(null) }
+    var isSpeaking by remember { mutableStateOf(false) }
+
+    // VoiceChatHelper 초기화
+    val voiceChatHelper = remember {
+        VoiceChatHelper(
+            context = context,
+            onSpeechResult = { recognizedText ->
+                onMessageChange(recognizedText)
+                isListening = false
+            },
+            onError = { error ->
+                voiceError = error
+                isListening = false
+            }
+        )
+    }
+
+    // 컴포넌트 해제 시 리소스 정리
+    DisposableEffect(Unit) {
+        onDispose {
+            voiceChatHelper.cleanup()
+        }
+    }
+
+    // 음성 인식 시작/중지 함수
+    fun toggleVoiceRecognition() {
+        if (!microphonePermissionState.status.isGranted) {
+            microphonePermissionState.launchPermissionRequest()
+            return
+        }
+
+        if (isListening) {
+            voiceChatHelper.stopListening()
+            isListening = false
+        } else {
+            voiceChatHelper.startListening()
+            isListening = true
+            voiceError = null
+        }
+    }
+
+    // 텍스트를 음성으로 읽기
+    fun speakText(text: String) {
+        voiceChatHelper.speak(text)
+        isSpeaking = true
+        onSpeakResponse(text)
+    }
+
+    // 음성 중지
+    fun stopSpeaking() {
+        voiceChatHelper.stopSpeaking()
+        isSpeaking = false
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
         properties = DialogProperties(dismissOnClickOutside = false)
     ) {
         Surface(
@@ -76,20 +138,60 @@ fun ChatbotDialog(
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.CenterEnd)
+
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "닫기", tint = Color.White)
+                        // 음성 대화 모드 버튼
+                        IconButton(
+                            onClick = { onStartVoiceConversation() }
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_mic),
+                                contentDescription = "음성 대화 모드",
+                                tint = Color.White
+                            )
+                        }
+
+                        // TTS 제어 버튼
+                        IconButton(
+                            onClick = {
+                                if (isSpeaking) {
+                                    stopSpeaking()
+                                } else {
+                                    // 마지막 챗봇 응답을 음성으로 읽기
+                                    val lastBotResponse = conversationHistory
+                                        .lastOrNull { it.startsWith("동화 챗봇:") }
+                                        ?.substringAfter("동화 챗봇: ")?.trim()
+
+                                    if (!lastBotResponse.isNullOrBlank()) {
+                                        speakText(lastBotResponse)
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (isSpeaking) R.drawable.ic_pause else R.drawable.ic_volume_up
+                                ),
+                                contentDescription = if (isSpeaking) "음성 중지" else "음성 재생",
+                                tint = Color.White
+                            )
+                        }
+
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "닫기", tint = Color.White)
+                        }
                     }
                 }
 
                 // 메시지 영역
                 val listState = rememberLazyListState()
                 LaunchedEffect(conversationHistory.size, isLoading) {
-                    // 가장 마지막으로 스크롤
                     listState.animateScrollToItem(conversationHistory.size + if (isLoading) 1 else 0)
                 }
+
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -97,9 +199,9 @@ fun ChatbotDialog(
                         .padding(vertical = 8.dp, horizontal = 12.dp)
                 ) {
                     items(conversationHistory) { raw ->
-                        // "나: ..." or "동화 챗봇: ..."
                         val isUser = raw.startsWith("나:")
                         val text = raw.substringAfter(": ").trim()
+
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -112,15 +214,37 @@ fun ChatbotDialog(
                                 tonalElevation = 1.dp,
                                 modifier = Modifier.widthIn(max = 240.dp)
                             ) {
-                                Text(
-                                    text = text,
+                                Row(
                                     modifier = Modifier.padding(12.dp),
-                                    fontSize = 14.sp,
-                                    color = Color.Black
-                                )
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Text(
+                                        text = text,
+                                        fontSize = 14.sp,
+                                        color = Color.Black,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    // 챗봇 메시지에 음성 재생 버튼 추가
+                                    if (!isUser && text.isNotBlank()) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        IconButton(
+                                            onClick = { speakText(text) },
+                                            modifier = Modifier.size(20.dp)
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_volume_up),
+                                                contentDescription = "음성으로 듣기",
+                                                tint = Color(0xFFE9D364),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
+
                     if (isLoading) {
                         item {
                             Row(
@@ -135,50 +259,114 @@ fun ChatbotDialog(
                                     tonalElevation = 1.dp,
                                     modifier = Modifier.widthIn(max = 240.dp)
                                 ) {
-                                    Text(
-                                        text = "로딩중입니다...",
+                                    Row(
                                         modifier = Modifier.padding(12.dp),
-                                        fontSize = 14.sp,
-                                        color = Color.Gray
-                                    )
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = Color(0xFFE9D364)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "생각하는 중...",
+                                            fontSize = 14.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
+                // 오류 메시지 표시
+                voiceError?.let { error ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                    ) {
+                        Text(
+                            text = error,
+                            color = Color.Red,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
 
-                // 입력창 + 전송 버튼
+                // 입력창 + 버튼들
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Bottom
                 ) {
+                    // 텍스트 입력 필드
                     M2OutlinedTextField(
                         value = userMessage,
                         onValueChange = onMessageChange,
-                        placeholder = { M2Text("메시지를 입력하세요…") },
+                        placeholder = { M2Text("메시지를 입력하거나 음성으로 말씀해주세요") },
                         modifier = Modifier
                             .weight(1f)
                             .height(56.dp),
                         colors = M2TextFieldDefaults.outlinedTextFieldColors(
-                            focusedBorderColor   = Color(0xFFE9D364),
+                            focusedBorderColor = Color(0xFFE9D364),
                             unfocusedBorderColor = Color.Gray,
-                            cursorColor          = Color(0xFFE9D364)
+                            cursorColor = Color(0xFFE9D364)
                         ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = {
-                            onSend()
-                            onMessageChange("")      // 입력창 클리어
-                            focusManager.clearFocus() // 키보드 내리기
+                            if (userMessage.isNotBlank()) {
+                                onSend()
+                                onMessageChange("")
+                                focusManager.clearFocus()
+                            }
                         })
                     )
+
                     Spacer(Modifier.width(8.dp))
+
+                    // 음성 인식 버튼
+                    val voiceButtonScale by animateFloatAsState(
+                        targetValue = if (isListening) 1.2f else 1f,
+                        animationSpec = tween(150),
+                        label = "voice button scale"
+                    )
+
                     IconButton(
-                        onClick = {onSend()
-                            onMessageChange("")
-                            focusManager.clearFocus()},
+                        onClick = { toggleVoiceRecognition() },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .scale(voiceButtonScale)
+                            .background(
+                                color = if (isListening) Color(0xFFFF5722) else Color(0xFF2196F3),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                id = if (isListening) R.drawable.ic_stop else R.drawable.ic_mic
+                            ),
+                            contentDescription = if (isListening) "음성 인식 중지" else "음성 인식 시작",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    // 텍스트 전송 버튼
+                    IconButton(
+                        onClick = {
+                            if (userMessage.isNotBlank()) {
+                                onSend()
+                                onMessageChange("")
+                                focusManager.clearFocus()
+                            }
+                        },
                         enabled = userMessage.isNotBlank(),
                         modifier = Modifier
                             .size(48.dp)

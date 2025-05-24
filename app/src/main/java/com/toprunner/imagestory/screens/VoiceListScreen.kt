@@ -335,9 +335,15 @@ fun VoiceListScreen(
             }
         }
     }
-
-    Scaffold(
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // 헤더
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -365,18 +371,10 @@ fun VoiceListScreen(
                 }
             }
 
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(backgroundColor)
-        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 16.dp)
+                    .padding(bottom = 0.dp)  // 하단 패딩 제거
             ) {
                 // 녹음하기 버튼
                 NeuomorphicButton(

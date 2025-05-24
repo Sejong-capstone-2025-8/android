@@ -769,7 +769,7 @@ fun NoiseReductionDialog(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = "노이즈 제거 적용",
+                            text = "노이즈 제거",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black

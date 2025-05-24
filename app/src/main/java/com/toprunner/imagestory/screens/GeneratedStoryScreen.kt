@@ -44,6 +44,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import com.toprunner.imagestory.ui.components.ChatbotDialog
+import com.toprunner.imagestory.ui.components.VoiceConversationDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,22 +126,76 @@ fun GeneratedStoryScreen(
     }
 
     var isLoading by remember { mutableStateOf(false) }
-    // 챗봇 다이얼로그
+
+    // 상태 변수 추가
+    var showVoiceConversationDialog by remember { mutableStateOf(false) }
+
+// 기존 ChatbotDialog 수정
     if (showChatbotDialog) {
         ChatbotDialog(
             conversationHistory = conversationHistory,
-            userMessage          = userMessage,
-            onMessageChange      = { userMessage = it },
-            isLoading            = isLoading,
-            onSend               = {
-                isLoading = true                         // 전송 직후 로딩 시작
-                handleChatbot {                         // handleChatbot 콜백 형태로 onComplete 추가
-                    isLoading = false                    // 응답 받으면 로딩 종료
+            userMessage = userMessage,
+            onMessageChange = { userMessage = it },
+            isLoading = isLoading,
+            onSend = {
+                isLoading = true
+                handleChatbot {
+                    isLoading = false
                 }
             },
-            onDismiss            = { showChatbotDialog = false }
+            onDismiss = { showChatbotDialog = false },
+            onSpeakResponse = { responseText ->
+                // 필요시 추가 처리
+            },
+            onStartVoiceConversation = {
+                showChatbotDialog = false
+                showVoiceConversationDialog = true
+            }
         )
+    }
 
+// 새로운 음성 대화 다이얼로그 추가
+    if (showVoiceConversationDialog) {
+        VoiceConversationDialog(
+            onDismiss = { showVoiceConversationDialog = false },
+            onSendMessage = { message ->
+                // handleChatbot와 동일한 로직으로 메시지 처리
+                conversationHistory.add("나: $message")
+                scope.launch {
+                    try {
+                        val response = gptService.chatWithBot(message, conversationHistory, storyContent)
+                        conversationHistory.add("동화 챗봇: $response")
+                        // 음성 대화 다이얼로그에 응답 전달하는 방법이 필요함
+                    } catch (e: Exception) {
+                        Log.e("GeneratedStoryScreen", "음성 대화 오류: ${e.message}")
+                    }
+                }
+            },
+            onReceiveResponse = { response ->
+                // 응답 받았을 때 처리
+                Log.d("GeneratedStoryScreen", "음성 응답 받음: $response")
+            },
+            storyContent = storyContent,
+            gptService = gptService, // GPTService 전달
+            conversationHistory = conversationHistory // 대화 기록 전달
+        )
+    }
+    if (showVoiceConversationDialog) {
+        VoiceConversationDialog(
+            onDismiss = { showVoiceConversationDialog = false },
+            onSendMessage = { message ->
+                // 실제로는 VoiceConversationDialog 내부에서 처리하므로
+                // 여기서는 특별한 처리가 필요 없음
+                Log.d("GeneratedStoryScreen", "음성 메시지 전송: $message")
+            },
+            onReceiveResponse = { response ->
+                // 응답 받았을 때 처리
+                Log.d("GeneratedStoryScreen", "음성 응답 받음: $response")
+            },
+            storyContent = storyContent,
+            gptService = gptService, // GPTService 전달
+            conversationHistory = conversationHistory // 대화 기록 전달
+        )
     }
 
     if (showFallbackDialog) {
