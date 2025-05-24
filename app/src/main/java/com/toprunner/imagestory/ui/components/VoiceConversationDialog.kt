@@ -230,14 +230,14 @@ fun VoiceConversationDialog(
                 // 네온 효과와 블러 추가
                 Box(
                     modifier = Modifier
-                        .size(240.dp)
+                        .size(160.dp)
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    Color(0xFF00D4FF).copy(alpha = 0.1f),
+                                    Color(0xFF272F80).copy(alpha = 0.1f),
                                     Color.Transparent
                                 ),
-                                radius = 300f
+                                radius = 150f
                             ),
                             shape = CircleShape
                         ),
@@ -249,7 +249,7 @@ fun VoiceConversationDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // 상태 텍스트
                 Text(
@@ -260,17 +260,17 @@ fun VoiceConversationDialog(
                         VoiceConversationState.SPEAKING -> "답변하고 있어요"
                         VoiceConversationState.ERROR -> errorMessage ?: "오류가 발생했습니다"
                     },
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.White,
                     textAlign = TextAlign.Center,
                     letterSpacing = 0.5.sp,
-                    modifier = Modifier.padding(horizontal = 24.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
 
                 // 현재 사용자 메시지 표시
                 if (currentUserMessage.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "\"$currentUserMessage\"",
                         fontSize = 14.sp,
@@ -298,8 +298,13 @@ fun VoiceConversationDialog(
                 if (voiceConversationHistory.isNotEmpty()) {
                     LazyColumn(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
+                            .weight(2f) // 기존 1f에서 2f로 증가 (2배 공간 확보)
+                            .fillMaxWidth()
+                            .background(
+                                color = Color.White.copy(alpha = 0.05f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(8.dp),
                         reverseLayout = true
                     ) {
                         items(voiceConversationHistory.reversed()) { (user, bot) ->
@@ -520,7 +525,7 @@ private fun DrawScope.drawListeningAnimation(
 
     // 중앙 마이크
     drawCircle(
-        color = Color(0xFF2196F3),
+        color = Color(0xFF3F40E5),
         radius = radius,
         center = center
     )
@@ -539,7 +544,7 @@ private fun DrawScope.drawListeningAnimation(
         )
 
         drawLine(
-            color = Color(0xFF64B5F6),
+            color = Color(0xFF3F40E5).copy(alpha = 0.3f),
             start = startOffset,
             end = endOffset,
             strokeWidth = 4.dp.toPx(),
