@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.util.*
 
+
 class VoiceChatHelper(
     private val context: Context,
     private val onSpeechResult: (String) -> Unit,
@@ -99,30 +100,49 @@ class VoiceChatHelper(
             textToSpeech?.stop()
 
             // TTS 완료 리스너 설정
-            textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {
-                    _isSpeaking = true
-                    Log.d(TAG, "TTS started: $utteranceId")
-                }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
+                textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        _isSpeaking = true
+                        Log.d(TAG, "TTS started: $utteranceId")
+                    }
 
-                override fun onDone(utteranceId: String?) {
+                    override fun onDone(utteranceId: String?) {
+                        _isSpeaking = false
+                        Log.d(TAG, "TTS completed: $utteranceId")
+                        onTTSComplete?.invoke()
+                    }
+
+                    override fun onError(utteranceId: String?) {
+                        _isSpeaking = false
+                        Log.e(TAG, "TTS error: $utteranceId")
+                        onTTSComplete?.invoke()
+                    }
+                })
+            } else {
+                // 구버전 API 대응 - 익명 객체로 리스너 구현
+                @Suppress("DEPRECATION")
+                textToSpeech?.setOnUtteranceCompletedListener { utteranceId ->
                     _isSpeaking = false
-                    Log.d(TAG, "TTS completed: $utteranceId")
+                    Log.d(TAG, "TTS completed (legacy): $utteranceId")
                     onTTSComplete?.invoke()
                 }
-
-                override fun onError(utteranceId: String?) {
-                    _isSpeaking = false
-                    Log.e(TAG, "TTS error: $utteranceId")
-                    onTTSComplete?.invoke()
-                }
-            })
+            }
 
             // 새 텍스트 읽기
-            val params = Bundle()
-            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "chatbot_response_${System.currentTimeMillis()}")
+            val utteranceId = "chatbot_response_${System.currentTimeMillis()}"
 
-            textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "chatbot_response")
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                val params = Bundle()
+                params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+                textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+            } else {
+                @Suppress("DEPRECATION")
+                val params = HashMap<String, String>()
+                params[TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID] = utteranceId
+                textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params)
+            }
+
             _isSpeaking = true
             Log.d(TAG, "Speaking: $text")
         } catch (e: Exception) {

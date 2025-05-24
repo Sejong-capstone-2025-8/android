@@ -1,6 +1,7 @@
 package com.toprunner.imagestory.ui.components
 
 import android.Manifest
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -122,16 +124,40 @@ fun ChatbotDialog(
             tonalElevation = 8.dp,
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.85f)
+                .fillMaxHeight(0.85f),
+            color = Color(0xFFF8F9FA)
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFFAFAFA), // 상단 밝은 회색
+                                Color(0xFFF0F0F5)  // 하단 약간 더 어두운 회색
+                            )
+                        )
+                    )
+            ) {
                 // 제목 바
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFE9D364))
-                        .padding(vertical = 16.dp, horizontal = 16.dp)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFF667eea),
+                                        Color(0xFF764ba2)
+                                    )
+                                )
+                            )
+                            .padding(vertical = 20.dp, horizontal = 20.dp)
+                    ) {
                     Text(
                         "동화 챗봇",
                         fontSize = 22.sp,
@@ -185,6 +211,7 @@ fun ChatbotDialog(
                         }
                     }
                 }
+            }
 
                 // 메시지 영역
                 val listState = rememberLazyListState()
@@ -208,11 +235,23 @@ fun ChatbotDialog(
                                 .padding(vertical = 4.dp),
                             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
                         ) {
-                            Surface(
-                                color = if (isUser) Color(0xFFDCF8C6) else Color.White,
-                                shape = RoundedCornerShape(12.dp),
-                                tonalElevation = 1.dp,
-                                modifier = Modifier.widthIn(max = 240.dp)
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isUser)
+                                        Color(0xFF007AFF).copy(alpha = 0.9f)
+                                    else
+                                        Color(0xFFF8F9FA)
+                                ),
+                                shape = RoundedCornerShape(
+                                    topStart = if (isUser) 20.dp else 4.dp,
+                                    topEnd = if (isUser) 4.dp else 20.dp,
+                                    bottomStart = 20.dp,
+                                    bottomEnd = 20.dp
+                                ),
+                                //elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                modifier = Modifier
+                                    .widthIn(max = 280.dp)
+                                    .animateContentSize()
                             ) {
                                 Row(
                                     modifier = Modifier.padding(12.dp),
@@ -308,15 +347,17 @@ fun ChatbotDialog(
                     M2OutlinedTextField(
                         value = userMessage,
                         onValueChange = onMessageChange,
-                        placeholder = { M2Text("메시지를 입력하거나 음성으로 말씀해주세요") },
+                        placeholder = { M2Text("메시지를 입력하세요") },
                         modifier = Modifier
                             .weight(1f)
                             .height(56.dp),
                         colors = M2TextFieldDefaults.outlinedTextFieldColors(
-                            focusedBorderColor = Color(0xFFE9D364),
-                            unfocusedBorderColor = Color.Gray,
-                            cursorColor = Color(0xFFE9D364)
+                            focusedBorderColor = Color(0xFF007AFF),
+                            unfocusedBorderColor = Color(0xFFE5E5EA),
+                            cursorColor = Color(0xFF007AFF),
+                            focusedLabelColor = Color(0xFF007AFF)
                         ),
+                        shape = RoundedCornerShape(15.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = {
                             if (userMessage.isNotBlank()) {

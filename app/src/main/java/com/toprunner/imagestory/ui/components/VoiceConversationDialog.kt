@@ -1,7 +1,9 @@
 package com.toprunner.imagestory.ui.components
 
 import android.Manifest
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -76,9 +79,12 @@ fun VoiceConversationDialog(
     // 대화 기록 (UI 표시용)
     val voiceConversationHistory = remember { mutableStateListOf<Pair<String, String>>() }
 
-    // VoiceChatHelper 초기화 - TTS 완료 콜백 추가
-    val voiceChatHelper = remember {
-        VoiceChatHelper(
+    // VoiceChatHelper를 늦은 초기화로 생성
+    var voiceChatHelper: VoiceChatHelper? by remember { mutableStateOf(null) }
+
+    // VoiceChatHelper 초기화 - TTS 완료 콜백 포함
+    LaunchedEffect(Unit) {
+        voiceChatHelper = VoiceChatHelper(
             context = context,
             onSpeechResult = { recognizedText ->
                 currentUserMessage = recognizedText
@@ -106,7 +112,7 @@ fun VoiceConversationDialog(
                         conversationState = VoiceConversationState.SPEAKING
 
                         // TTS로 응답 읽기
-                        voiceChatHelper.speak(response)
+                        voiceChatHelper?.speak(response)
                         onReceiveResponse(response)
 
                         // TTS 완료는 onTTSComplete 콜백에서 처리됨
@@ -119,7 +125,7 @@ fun VoiceConversationDialog(
                         delay(3000)
                         if (isAutoMode) {
                             conversationState = VoiceConversationState.LISTENING
-                            voiceChatHelper.startListening()
+                            voiceChatHelper?.startListening()
                         } else {
                             conversationState = VoiceConversationState.WAITING
                         }
@@ -136,7 +142,7 @@ fun VoiceConversationDialog(
                     scope.launch {
                         delay(1000) // 1초 대기 후 다시 듣기 시작
                         conversationState = VoiceConversationState.LISTENING
-                        voiceChatHelper.startListening()
+                        voiceChatHelper?.startListening()
                     }
                 } else if (conversationState == VoiceConversationState.SPEAKING) {
                     conversationState = VoiceConversationState.WAITING
@@ -153,18 +159,19 @@ fun VoiceConversationDialog(
     }
 
     // 자동 모드 시작 처리
-    LaunchedEffect(isAutoMode) {
-        if (isAutoMode && conversationState == VoiceConversationState.WAITING && microphonePermissionState.status.isGranted) {
+    LaunchedEffect(isAutoMode, voiceChatHelper) {
+        if (isAutoMode && conversationState == VoiceConversationState.WAITING &&
+            microphonePermissionState.status.isGranted && voiceChatHelper != null) {
             delay(1000)
             conversationState = VoiceConversationState.LISTENING
-            voiceChatHelper.startListening()
+            voiceChatHelper?.startListening()
         }
     }
 
     // 컴포넌트 해제 시 리소스 정리
     DisposableEffect(Unit) {
         onDispose {
-            voiceChatHelper.cleanup()
+            voiceChatHelper?.cleanup()
         }
     }
 
@@ -183,12 +190,13 @@ fun VoiceConversationDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        brush = Brush.verticalGradient(
+                        brush = Brush.radialGradient(
                             colors = listOf(
-                                Color(0xFF1A1A2E),
-                                Color(0xFF16213E),
-                                Color(0xFF0F3460)
-                            )
+                                Color(0xFF0F0C29),
+                                Color(0xFF24243e),
+                                Color(0xFF302b63)
+                            ),
+                            radius = 800f
                         )
                     )
                     .padding(20.dp),
@@ -219,8 +227,20 @@ fun VoiceConversationDialog(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // 메인 애니메이션 영역
+                // 네온 효과와 블러 추가
                 Box(
-                    modifier = Modifier.size(200.dp),
+                    modifier = Modifier
+                        .size(240.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF00D4FF).copy(alpha = 0.1f),
+                                    Color.Transparent
+                                ),
+                                radius = 300f
+                            ),
+                            shape = CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     VoiceAnimationVisualizer(
@@ -240,10 +260,12 @@ fun VoiceConversationDialog(
                         VoiceConversationState.SPEAKING -> "답변하고 있어요"
                         VoiceConversationState.ERROR -> errorMessage ?: "오류가 발생했습니다"
                     },
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.W600,
                     color = Color.White,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
 
                 // 현재 사용자 메시지 표시
@@ -270,7 +292,7 @@ fun VoiceConversationDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // 대화 기록
                 if (voiceConversationHistory.isNotEmpty()) {
@@ -308,26 +330,36 @@ fun VoiceConversationDialog(
                             when (conversationState) {
                                 VoiceConversationState.WAITING, VoiceConversationState.ERROR -> {
                                     conversationState = VoiceConversationState.LISTENING
-                                    voiceChatHelper.startListening()
+                                    voiceChatHelper?.startListening()
                                     errorMessage = null
                                 }
                                 VoiceConversationState.LISTENING -> {
-                                    voiceChatHelper.stopListening()
+                                    voiceChatHelper?.stopListening()
                                     conversationState = VoiceConversationState.WAITING
                                 }
                                 VoiceConversationState.SPEAKING -> {
-                                    voiceChatHelper.stopSpeaking()
+                                    voiceChatHelper?.stopSpeaking()
                                     conversationState = VoiceConversationState.WAITING
                                 }
                                 else -> {}
                             }
                         },
                         containerColor = when (conversationState) {
-                            VoiceConversationState.LISTENING -> Color(0xFFFF5722)
-                            VoiceConversationState.SPEAKING -> Color(0xFFFF9800)
-                            else -> Color(0xFF4CAF50)
+                            VoiceConversationState.LISTENING -> Color(0xFFFF3B30)
+                            VoiceConversationState.SPEAKING -> Color(0xFFFF9500)
+                            else -> Color(0xFF027AFF)
                         },
-                        modifier = Modifier.size(56.dp)
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 8.dp,
+                            pressedElevation = 12.dp
+                        ),
+                        modifier = Modifier
+                            .size(52.dp)
+                            .shadow(
+                                elevation = 16.dp,
+                                shape = CircleShape,
+                                spotColor = Color(0xFF007AFF).copy(alpha = 0.25f)
+                            )
                     ) {
                         Icon(
                             painter = painterResource(
@@ -350,15 +382,15 @@ fun VoiceConversationDialog(
                             isAutoMode = newValue
                             if (newValue && conversationState == VoiceConversationState.WAITING) {
                                 conversationState = VoiceConversationState.LISTENING
-                                voiceChatHelper.startListening()
+                                voiceChatHelper?.startListening()
                             } else if (!newValue && conversationState == VoiceConversationState.LISTENING) {
-                                voiceChatHelper.stopListening()
+                                voiceChatHelper?.stopListening()
                                 conversationState = VoiceConversationState.WAITING
                             }
                         },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFFE9D364),
-                            checkedTrackColor = Color(0xFFE9D364).copy(alpha = 0.5f)
+                            checkedThumbColor = Color(0xFF090633),
+                            checkedTrackColor = Color(0xFF4738EE).copy(alpha = 0.5f)
                         )
                     )
                 }
@@ -441,14 +473,14 @@ fun VoiceAnimationVisualizer(
 }
 
 private fun DrawScope.drawWaitingAnimation(center: Offset, radius: Float) {
-    // 정적인 마이크 아이콘
+
     drawCircle(
-        color = Color(0xFF4CAF50).copy(alpha = 0.3f),
+        color = Color(0xFF4050D7).copy(alpha = 0.3f),
         radius = radius * 2,
         center = center
     )
     drawCircle(
-        color = Color(0xFF4CAF50),
+        color = Color(0xFF1F1F7A),
         radius = radius,
         center = center
     )
@@ -461,15 +493,28 @@ private fun DrawScope.drawListeningAnimation(
     scale: Float
 ) {
     // 음성 인식 중 - 파동 효과
-    for (i in 1..3) {
-        val waveRadius = radius * (1 + i * 0.8f) * scale
-        val alpha = 0.6f - (i * 0.15f)
+    for (i in 1..4) {
+        val waveRadius = radius * (1 + i * 0.6f) * scale
+        val alpha = (0.8f - (i * 0.15f)) * sin(waveOffset + i).toFloat().coerceIn(0f, 1f)
 
+        // 외부 글로우
         drawCircle(
-            color = Color(0xFF2196F3).copy(alpha = alpha),
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFF3F40E5).copy(alpha = alpha * 0.3f),
+                    Color.Transparent
+                )
+            ),
+            radius = waveRadius + 10.dp.toPx(),
+            center = center
+        )
+
+        // 메인 링
+        drawCircle(
+            color = Color(0xFF3F40E5).copy(alpha = alpha),
             radius = waveRadius,
             center = center,
-            style = Stroke(width = 3.dp.toPx())
+            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
         )
     }
 
@@ -513,7 +558,7 @@ private fun DrawScope.drawProcessingAnimation(center: Offset, radius: Float, rot
         )
 
         drawCircle(
-            color = Color(0xFFFF9800),
+            color = Color(0xFF3E3AD0),
             radius = radius * 0.2f,
             center = dotCenter
         )
@@ -521,7 +566,7 @@ private fun DrawScope.drawProcessingAnimation(center: Offset, radius: Float, rot
 
     // 중앙 원
     drawCircle(
-        color = Color(0xFFFF9800).copy(alpha = 0.3f),
+        color = Color(0xFF120C44).copy(alpha = 0.3f),
         radius = radius,
         center = center
     )
@@ -534,7 +579,7 @@ private fun DrawScope.drawSpeakingAnimation(center: Offset, radius: Float, waveO
         val alpha = (sin(waveOffset + i * PI / 2) + 1) / 2 * 0.5f
 
         drawCircle(
-            color = Color(0xFF9C27B0).copy(alpha = alpha.toFloat()),
+            color = Color(0xFF4319B2).copy(alpha = alpha.toFloat()),
             radius = waveRadius,
             center = center,
             style = Stroke(width = 2.dp.toPx())
@@ -543,7 +588,7 @@ private fun DrawScope.drawSpeakingAnimation(center: Offset, radius: Float, waveO
 
     // 중앙 스피커
     drawCircle(
-        color = Color(0xFF9C27B0),
+        color = Color(0xFF2E0764),
         radius = radius,
         center = center
     )
@@ -552,19 +597,19 @@ private fun DrawScope.drawSpeakingAnimation(center: Offset, radius: Float, waveO
 private fun DrawScope.drawErrorAnimation(center: Offset, radius: Float) {
     // 오류 상태 - 빨간 X
     drawCircle(
-        color = Color(0xFFF44336).copy(alpha = 0.3f),
-        radius = radius * 2,
+        color = Color(0xFF15105D).copy(alpha = 0.3f),
+        radius = radius * 1.5f,
         center = center
     )
 
     drawCircle(
-        color = Color(0xFFF44336),
+        color = Color(0xFF15105D),
         radius = radius,
         center = center
     )
 
     // X 표시
-    val lineLength = radius * 0.6f
+    val lineLength = radius * 0.4f
     drawLine(
         color = Color.White,
         start = Offset(center.x - lineLength, center.y - lineLength),
@@ -589,14 +634,20 @@ fun VoiceConversationItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.1f)
+            containerColor = Color.White.copy(alpha = 0.08f)
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = Color.White.copy(alpha = 0.1f)
+        )
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier
+                .padding(16.dp)
+                .animateContentSize()
         ) {
             // 사용자 메시지
             Row(
