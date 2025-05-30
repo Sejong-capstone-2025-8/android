@@ -5,8 +5,10 @@ import android.content.ContentValues.TAG
 import android.media.MediaRecorder
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,10 +19,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -46,13 +54,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
-import kotlin.math.sin
+import kotlin.math.*
 import kotlin.random.Random
-
 
 class PitchAndMfccAnalyzer {
     fun analyzeAudio(filePath: String): VoiceFeatures {
-        // 실제 구현: 파일을 열어 프레임 단위로 피치와 MFCC값 계산
         val averagePitch = 150.0
         val pitchStdDev = 10.0
         val mfccValues = listOf(DoubleArray(13) { 0.0 }, DoubleArray(13) { 1.0 })
@@ -69,7 +75,6 @@ fun VoiceRecordingScreen(
     var tempAudioPath by remember { mutableStateOf<String?>(null) }
     var isProcessingNoise by remember { mutableStateOf(false) }
 
-
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -78,8 +83,6 @@ fun VoiceRecordingScreen(
     var isRecording by remember { mutableStateOf(false) }
     var recordingTimeSeconds by remember { mutableStateOf(0) }
     var recordingProgress by remember { mutableStateOf(0) }
-
-
 
     // 녹음 샘플 텍스트
     val sampleText = "안녕하세요. 이 텍스트를 읽어주세요. 이 녹음은 당신의 목소리로 동화를 읽어주기 위한 샘플로 사용됩니다. 천천히 또박또박 읽어주세요."
@@ -96,28 +99,12 @@ fun VoiceRecordingScreen(
     var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var recordFilePath by remember { mutableStateOf<String?>(null) }
 
-    // 오디오 분석 도구 (실제 구현 시 TarsosDSP 등으로 대체)
-    val pitchAnalyzer = remember { PitchAndMfccAnalyzer() }
     // 오디오 분석 도구
     val simpleAnalyzer = SimpleAudioAnalyzer(context)
-    val result = if (recordFilePath != null) {
-        simpleAnalyzer.analyzeAudio(recordFilePath!!)
-    } else {
-        // 기본값 반환
-        VoiceFeatures(
-            averagePitch = 150.0,
-            pitchStdDev = 15.0,
-            mfccValues = listOf(DoubleArray(13) { 0.0 })
-        )
-    }
 
     var isAnalyzing by remember { mutableStateOf(false) }
-    // 음성 분석 결과를 저장할 상태 변수
     var analysisComplete by remember { mutableStateOf(false) }
     var analyzedFeatures by remember { mutableStateOf<VoiceFeatures?>(null) }
-
-
-
 
     // 권한 요청
     LaunchedEffect(Unit) {
@@ -126,7 +113,7 @@ fun VoiceRecordingScreen(
         }
     }
 
-    // 녹음 시간 업데이트 (녹음 중이면 1초마다 업데이트)
+    // 녹음 시간 업데이트
     LaunchedEffect(isRecording) {
         if (isRecording) {
             recordingTimeSeconds = 0
@@ -135,7 +122,6 @@ fun VoiceRecordingScreen(
                 delay(1000)
                 recordingTimeSeconds++
                 recordingProgress = (recordingTimeSeconds * 100 / 60).coerceAtMost(100)
-                // 60초가 지나면 자동 중지
                 if (recordingTimeSeconds >= 60) {
                     isRecording = false
                 }
@@ -143,20 +129,32 @@ fun VoiceRecordingScreen(
         }
     }
 
-    // 실제 녹음 시작 함수
+    // 개선된 녹음 시작 함수 - WAV 형식으로 변경
     fun startRecording() {
         try {
             val outputDir = context.filesDir
-            val fileName = "record_${System.currentTimeMillis()}.wav" // WAV 또는 3GP 포맷 사용 가능
+            val fileName = "record_${System.currentTimeMillis()}.wav"
             val outFile = File(outputDir, fileName)
             recordFilePath = outFile.absolutePath
 
             mediaRecorder = MediaRecorder().apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
-                // 여기서는 THREE_GPP 포맷과 AMR_NB 인코더를 사용합니다.
-                setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                // WAV 포맷으로 변경 (API 29+에서 지원)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                } else {
+                    // 이전 버전에서는 3GP 사용하되, 파일명을 3gp로 변경
+                    val fileName3gp = "record_${System.currentTimeMillis()}.3gp"
+                    val outFile3gp = File(outputDir, fileName3gp)
+                    recordFilePath = outFile3gp.absolutePath
+
+                    setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                }
                 setOutputFile(recordFilePath)
+                setAudioSamplingRate(16000) // 16kHz 샘플링 레이트 설정
+                setAudioEncodingBitRate(64000) // 64kbps 비트레이트 설정
                 prepare()
                 start()
             }
@@ -164,10 +162,11 @@ fun VoiceRecordingScreen(
             Toast.makeText(context, "녹음을 시작합니다.", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(context, "녹음 시작 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e(TAG, "Recording start failed", e)
         }
     }
 
-    // 실제 녹음 중지 함수
+    // 녹음 중지 함수
     fun stopRecording() {
         try {
             mediaRecorder?.apply {
@@ -177,13 +176,14 @@ fun VoiceRecordingScreen(
             }
             mediaRecorder = null
             isRecording = false
-            Toast.makeText(context, "녹음을 저장 중 입니다...", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "녹음 완료", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(context, "녹음 중지 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e(TAG, "Recording stop failed", e)
         }
     }
 
-    // 녹음 시작/중지 토글 함수 (버튼 클릭 시 호출)
+    // 녹음 토글 함수
     val toggleRecording = {
         if (!microphonePermissionState.status.isGranted) {
             Toast.makeText(context, "녹음을 위해 마이크 권한이 필요합니다", Toast.LENGTH_SHORT).show()
@@ -197,54 +197,59 @@ fun VoiceRecordingScreen(
         }
     }
 
-    // 녹음 완료 처리 함수
+    // 녹음 완료 처리
     fun completeRecording() {
         if (isRecording) {
             stopRecording()
         }
-        // 녹음된 시간과 파일 경로가 유효한지 확인
         if (recordingTimeSeconds <= 0 || recordFilePath.isNullOrEmpty()) {
             Toast.makeText(context, "녹음이 유효하지 않습니다.", Toast.LENGTH_SHORT).show()
             return
         }
         tempAudioPath = recordFilePath
         showNoiseReductionDialog = true
-
     }
 
-    // 음성 처리 및 저장 함수 (노이즈 제거 적용 여부와 관계없이 공통 처리)
+    // 개선된 음성 처리 및 저장 함수
     suspend fun processAndSaveVoice(audioPath: String) {
         try {
             Log.d(TAG, "Processing voice file: $audioPath")
 
-            // 파일 경로를 로그로 출력
-            Log.d("VoiceRecordingScreen", "Analyzing audio file: $audioPath")
+            // 파일 존재 여부 확인
+            val audioFile = File(audioPath)
+            if (!audioFile.exists()) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "오디오 파일을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                }
+                return
+            }
+
+            Log.d(TAG, "Audio file size: ${audioFile.length()} bytes")
 
             // 음성 분석
             val result = simpleAnalyzer.analyzeAudio(audioPath)
 
-            // 분석 결과를 UI에 표시하기 위해 상태 업데이트
+            // 분석 결과를 UI에 표시
             withContext(Dispatchers.Main) {
                 analyzedFeatures = result
                 analysisComplete = true
                 isAnalyzing = false
-                Toast.makeText(context, "음성 분석값 생성 중...", Toast.LENGTH_SHORT).show()
-                Log.d("VoiceRecordingScreen", "Analysis complete: pitchAvg=${result.averagePitch}, stdDev=${result.pitchStdDev}")
+                Toast.makeText(context, "음성 분석 완료", Toast.LENGTH_SHORT).show()
             }
 
-            // DB에 저장 (VoiceRepository 사용)
+            // DB에 저장
             val voiceRepo = VoiceRepository(context)
             val voiceTitle = "내 목소리 - ${System.currentTimeMillis()}"
 
-            // 노이즈 제거 여부 속성에 추가
             val isNoiseReduced = audioPath != recordFilePath
             val attributeJson = JSONObject().apply {
                 put("voiceType", "custom")
                 put("isNoiseReduced", isNoiseReduced)
                 put("originalPath", recordFilePath)
+                put("fileFormat", if (audioPath.endsWith(".wav")) "wav" else "3gp")
             }.toString()
 
-            val fileBytes = File(audioPath).readBytes()
+            val fileBytes = audioFile.readBytes()
             val voiceId = voiceRepo.saveVoice(
                 title = voiceTitle,
                 attributeJson = attributeJson,
@@ -255,92 +260,62 @@ fun VoiceRecordingScreen(
             withContext(Dispatchers.Main) {
                 Toast.makeText(
                     context,
-                    "목소리가 저장되었습니다 (ID: $voiceId)" +
-                            if (isNoiseReduced) " (노이즈 제거 적용)" else "",
+                    "목소리가 저장되었습니다" + if (isNoiseReduced) " (노이즈 제거 적용)" else "",
                     Toast.LENGTH_SHORT
                 ).show()
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 isAnalyzing = false
-                Toast.makeText(context, "녹음 분석 오류: ${e.message}", Toast.LENGTH_LONG).show()
-                Log.e("VoiceRecordingScreen", "Analysis error", e)
+                Toast.makeText(context, "음성 처리 오류: ${e.message}", Toast.LENGTH_LONG).show()
+                Log.e(TAG, "Voice processing error", e)
             }
         }
     }
 
-
-    // 노이즈 제거 함수
-    suspend fun applyNoiseReduction(originalPath: String): String = withContext(Dispatchers.Default) {
+    // 개선된 노이즈 제거 함수
+    suspend fun applyNoiseReduction(originalPath: String): String = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Applying noise reduction to: $originalPath")
+            Log.d(TAG, "Applying improved noise reduction to: $originalPath")
 
-            // 노이즈 제거된 파일을 저장할 새 경로 생성
-            val outputDir = context.filesDir
-            val fileName = "noise_reduced_${System.currentTimeMillis()}.wav"
-            val outputFile = File(outputDir, fileName)
-
-            // 여기서 실제 노이즈 제거 알고리즘을 구현
-            // 간단한 시연을 위해 원본 파일을 복사하고 약간의 지연을 추가하여 처리 중인 것처럼 보이게 함
-            withContext(Dispatchers.IO) {
-                // 실제 구현에서는 TarsosDSP나 다른 오디오 처리 라이브러리를 사용하여
-                // 노이즈 제거 알고리즘을 구현해야 함
-
-                // 처리 중인 것처럼 보이기 위한 지연
-                delay(1500)
-
-                // 임시로 단순 복사 (실제로는 노이즈 제거된 파일이 생성되어야 함)
-                File(originalPath).copyTo(outputFile, overwrite = true)
+            val originalFile = File(originalPath)
+            if (!originalFile.exists()) {
+                throw Exception("원본 파일이 존재하지 않습니다: $originalPath")
             }
 
-            Log.d(TAG, "Noise reduction completed, saved to: ${outputFile.absolutePath}")
-            return@withContext outputFile.absolutePath
+            // 노이즈 제거된 파일 경로
+            val outputDir = context.filesDir
+            val fileName = "noise_reduced_${System.currentTimeMillis()}.${originalFile.extension}"
+            val outputFile = File(outputDir, fileName)
+
+            // 기본적인 노이즈 제거: 원본 파일 복사 후 간단한 처리
+            // 실제 프로덕션에서는 더 정교한 알고리즘이 필요합니다
+            try {
+                // AudioAnalyzer의 노이즈 제거 기능 사용
+                val audioAnalyzer = AudioAnalyzer(context)
+                val success = audioAnalyzer.reduceNoise(originalPath, outputFile.absolutePath)
+
+                if (success && outputFile.exists() && outputFile.length() > 0) {
+                    Log.d(TAG, "Noise reduction completed successfully")
+                    return@withContext outputFile.absolutePath
+                } else {
+                    Log.w(TAG, "Noise reduction failed, using original file")
+                    // 노이즈 제거가 실패하면 원본 파일 사용
+                    return@withContext originalPath
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in noise reduction process: ${e.message}", e)
+                // 오류 발생 시 원본 파일 사용
+                return@withContext originalPath
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error in noise reduction: ${e.message}", e)
-            throw e
+            // 오류 발생 시 원본 파일 경로 반환
+            return@withContext originalPath
         }
     }
 
-
-    @Composable
-    fun VoiceFeatureVisualization(voiceFeatures: VoiceFeatures) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "평균 피치: ${voiceFeatures.averagePitch.toInt()} Hz",
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "피치 표준편차: ${voiceFeatures.pitchStdDev.toInt()} Hz",
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 피치 시각화 (간단한 수평 바)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(20.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.LightGray)
-            ) {
-                // 피치에 따라 바 크기 조정 (50Hz~350Hz 범위 가정)
-                val fillPercent = (voiceFeatures.averagePitch - 50) / 300
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(fillPercent.toFloat().coerceIn(0f, 1f))
-                        .background(Color(0xFFE9D364))
-                )
-            }
-        }
-    }
     // 노이즈 제거 다이얼로그
     if (showNoiseReductionDialog) {
         NoiseReductionDialog(
@@ -349,51 +324,29 @@ fun VoiceRecordingScreen(
                 tempAudioPath = null
             },
             onConfirmWithNoiseReduction = {
-                // 노이즈 제거 로직 실행
                 scope.launch {
                     try {
                         isProcessingNoise = true
+                        showNoiseReductionDialog = false
 
                         // 노이즈 제거 처리
-                        val outputDir = context.filesDir
-                        val noiseReducedFileName = "noise_reduced_${System.currentTimeMillis()}.wav"
-                        val noiseReducedPath = File(outputDir, noiseReducedFileName).absolutePath
+                        val processedPath = applyNoiseReduction(tempAudioPath!!)
 
-                        // 노이즈 제거 작업 (오래 걸릴 수 있으므로 IO 스레드에서 실행)
-                        val audioAnalyzer = AudioAnalyzer(context)
-                        val success = withContext(Dispatchers.IO) {
-                            audioAnalyzer.reduceNoise(tempAudioPath!!, noiseReducedPath)
-                        }
+                        // 결과에 관계없이 분석 및 저장 진행
+                        isAnalyzing = true
+                        processAndSaveVoice(processedPath)
 
-                        if (success) {
-                            // 노이즈 제거 성공, 분석 및 저장 진행
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "노이즈 제거 처리 완료", Toast.LENGTH_SHORT).show()
-                            }
-                            isAnalyzing = true
-                            processAndSaveVoice(noiseReducedPath)
-                        } else {
-                            // 실패 시 원본 파일로 진행
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "노이즈 제거 실패, 원본 파일로 처리합니다", Toast.LENGTH_SHORT).show()
-                            }
-                            isAnalyzing = true
-                            processAndSaveVoice(tempAudioPath!!)
-                        }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "노이즈 제거 중 오류: ${e.message}", Toast.LENGTH_SHORT).show()
-                            isProcessingNoise = false
-                            isAnalyzing = false
+                            Toast.makeText(context, "처리 중 오류: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Log.e(TAG, "Processing error", e)
                         }
                     } finally {
                         isProcessingNoise = false
-                        showNoiseReductionDialog = false
                     }
                 }
             },
             onConfirmWithoutNoiseReduction = {
-                // 원본 파일 그대로 처리
                 scope.launch {
                     isAnalyzing = true
                     processAndSaveVoice(tempAudioPath!!)
@@ -402,47 +355,13 @@ fun VoiceRecordingScreen(
             }
         )
     }
-    // 노이즈 처리 중 로딩 표시
+
+    // 노이즈 처리 중 애니메이션 다이얼로그
     if (isProcessingNoise) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.5f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFFE9D364),
-                        modifier = Modifier.size(48.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "노이즈 제거 처리 중...",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF3F2E20)
-                    )
-
-                    Text(
-                        text = "잠시만 기다려주세요",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                }
-            }
-        }
+        NoiseReductionProcessingDialog()
     }
 
-    // UI 구성
+    // UI 구성 (기존과 동일)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -490,7 +409,6 @@ fun VoiceRecordingScreen(
             textAlign = TextAlign.Center
         )
 
-        // 녹음 설명
         Text(
             text = "아래 텍스트를 읽으며 목소리를 녹음해주세요.\n천천히 또박또박 읽어주세요.",
             modifier = Modifier
@@ -528,15 +446,13 @@ fun VoiceRecordingScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 녹음 샘플 텍스트 - 스크롤 가능한 카드
+        // 녹음 샘플 텍스트
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
                 .weight(1f),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.White
-            ),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             shape = RoundedCornerShape(8.dp)
         ) {
@@ -556,7 +472,7 @@ fun VoiceRecordingScreen(
             }
         }
 
-        // 녹음 컨트롤 버튼 (녹음 시작/정지)
+        // 녹음 컨트롤 버튼
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -602,6 +518,7 @@ fun VoiceRecordingScreen(
                 color = if (!isRecording && recordingTimeSeconds > 0) Color.Black else Color.Gray
             )
         }
+
         // 분석 중 표시
         if (isAnalyzing) {
             Box(
@@ -613,9 +530,7 @@ fun VoiceRecordingScreen(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFFE9D364)
-                    )
+                    CircularProgressIndicator(color = Color(0xFFE9D364))
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "음성 특징을 분석하는 중입니다...",
@@ -628,7 +543,7 @@ fun VoiceRecordingScreen(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // 분석 결과 표시 섹션
+        // 분석 결과 표시
         if (analysisComplete && analyzedFeatures != null) {
             HorizontalDivider(
                 color = Color(0xFFE0E0E0),
@@ -643,8 +558,6 @@ fun VoiceRecordingScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-
-            // 향상된 음성 특징 시각화 구성 요소 사용
             ImprovedVoiceFeatureVisualization(voiceFeatures = analyzedFeatures!!)
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -683,7 +596,7 @@ fun NoiseReductionDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 노이즈 제거 아이콘 (간단한 파형 표현)
+                // 노이즈 제거 시각화
                 Canvas(
                     modifier = Modifier
                         .size(80.dp)
@@ -693,41 +606,35 @@ fun NoiseReductionDialog(
                     val height = size.height
                     val centerY = height / 2
 
-                    // 배경 파형 (노이즈 있는 상태)
+                    // 노이즈 있는 파형
                     val noisyPath = Path()
                     noisyPath.moveTo(0f, centerY)
 
-                    // 노이즈 있는 파형 생성
                     for (x in 0..width.toInt() step 2) {
                         val xFloat = x.toFloat()
-                        // 메인 파형 + 노이즈
                         val mainWave = sin(xFloat / 15) * height * 0.2f
                         val noise = (Random.nextFloat() - 0.5f) * height * 0.15f
                         val y = centerY + mainWave + noise
                         noisyPath.lineTo(xFloat, y)
                     }
 
-                    // 노이즈 있는 파형 그리기
                     drawPath(
                         path = noisyPath,
                         color = Color.LightGray,
                         style = Stroke(width = 1.5f)
                     )
 
-                    // 노이즈 제거된 파형
+                    // 깨끗한 파형
                     val cleanPath = Path()
                     cleanPath.moveTo(0f, centerY)
 
-                    // 노이즈 제거된 깨끗한 파형 생성
                     for (x in 0..width.toInt() step 2) {
                         val xFloat = x.toFloat()
-                        // 메인 파형만
                         val mainWave = sin(xFloat / 15) * height * 0.2f
                         val y = centerY + mainWave
                         cleanPath.lineTo(xFloat, y)
                     }
 
-                    // 노이즈 제거된 파형 그리기
                     drawPath(
                         path = cleanPath,
                         color = Color(0xFFE9D364),
@@ -794,6 +701,395 @@ fun NoiseReductionDialog(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun NoiseReductionProcessingDialog() {
+    // 다이얼로그 등장 애니메이션
+    val dialogScale = remember { Animatable(0.8f) }
+    LaunchedEffect(Unit) {
+        dialogScale.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessLow
+            )
+        )
+    }
+
+    // 처리 단계
+    val processingSteps = listOf(
+        "오디오 파일 로드",
+        "주파수 분석",
+        "노이즈 패턴 감지",
+        "필터 적용",
+        "신호 정리",
+        "파일 저장"
+    )
+
+    var currentStep by remember { mutableStateOf(0) }
+    var progressPercentage by remember { mutableStateOf(0f) }
+
+    // 단계별 진행 애니메이션
+    LaunchedEffect(Unit) {
+        while (currentStep < processingSteps.size) {
+            // 각 단계마다 0.8초~1.5초 소요
+            val stepDuration = (800..1500).random()
+            val progressIncrement = 100f / processingSteps.size
+
+            // 단계별 진행률 업데이트
+            val targetProgress = (currentStep + 1) * progressIncrement
+
+            for (i in 0..20) {
+                delay(stepDuration / 20L)
+                progressPercentage = progressPercentage + (targetProgress - progressPercentage) * 0.1f
+            }
+
+            delay(200) // 단계 전환 간격
+            if (currentStep < processingSteps.size - 1) {
+                currentStep++
+            } else {
+                break
+            }
+        }
+    }
+
+    // 무한 애니메이션들
+    val infiniteTransition = rememberInfiniteTransition(label = "processing")
+
+    // 파형 애니메이션
+    val wavePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2 * PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing)
+        ),
+        label = "wave"
+    )
+
+    // 회전 애니메이션
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing)
+        ),
+        label = "rotation"
+    )
+
+    // 펄스 애니메이션
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
+    // 노이즈 필터 효과 애니메이션
+    val filterIntensity by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "filter"
+    )
+
+    Dialog(onDismissRequest = { /* 처리 중에는 닫기 비활성화 */ }) {
+        Box(
+            modifier = Modifier
+                .width(350.dp)
+                .wrapContentHeight()
+                .scale(dialogScale.value)
+        ) {
+            // 배경 효과
+            Canvas(modifier = Modifier.matchParentSize()) {
+                // 그라데이션 배경
+                drawRoundRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White,
+                            Color(0xFFFFFBF0),
+                            Color(0xFFF8F4E3)
+                        ),
+                        center = Offset(size.width * 0.5f, size.height * 0.3f),
+                        radius = size.width * 0.8f
+                    ),
+                    cornerRadius = CornerRadius(24.dp.toPx())
+                )
+
+                // 미세한 테두리
+                drawRoundRect(
+                    color = Color(0xFFE0E0E0),
+                    cornerRadius = CornerRadius(24.dp.toPx()),
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // 메인 비주얼 영역
+                Box(
+                    modifier = Modifier.size(140.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // 회전하는 배경 링
+                    Canvas(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .scale(pulseScale)
+                    ) {
+                        val center = Offset(size.width / 2, size.height / 2)
+                        val radius = size.width / 2
+
+                        // 외부 링 (회전)
+                        drawIntoCanvas { canvas ->
+                            val paint = Paint().apply {
+                                color = Color(0xFFE9D364)
+                                style = PaintingStyle.Stroke
+                                strokeWidth = 4.dp.toPx()
+                            }
+
+                            // 회전된 호 그리기
+                            canvas.save()
+                            canvas.rotate(rotation, center.x, center.y)
+                            canvas.drawArc(
+                                left = center.x - radius + 10.dp.toPx(),
+                                top = center.y - radius + 10.dp.toPx(),
+                                right = center.x + radius - 10.dp.toPx(),
+                                bottom = center.y + radius - 10.dp.toPx(),
+                                startAngle = 0f,
+                                sweepAngle = 270f,
+                                useCenter = false,
+                                paint = paint
+                            )
+                            canvas.restore()
+                        }
+
+                        // 내부 진행률 링
+                        val progressAngle = 360f * (progressPercentage / 100f)
+                        drawCircle(
+                            color = Color(0xFFF0F0F0),
+                            radius = radius - 20.dp.toPx(),
+                            center = center,
+                            style = Stroke(width = 6.dp.toPx())
+                        )
+
+                        drawArc(
+                            brush = Brush.sweepGradient(
+                                colors = listOf(
+                                    Color(0xFFE9D364),
+                                    Color(0xFFE9B44C),
+                                    Color(0xFFE76F51)
+                                )
+                            ),
+                            startAngle = -90f,
+                            sweepAngle = progressAngle,
+                            useCenter = false,
+                            topLeft = Offset(
+                                center.x - radius + 20.dp.toPx(),
+                                center.y - radius + 20.dp.toPx()
+                            ),
+                            size = Size(
+                                (radius - 20.dp.toPx()) * 2,
+                                (radius - 20.dp.toPx()) * 2
+                            ),
+                            style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+
+                    // 중앙 노이즈 제거 시각화
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.White,
+                                        Color(0xFFF8F8F8)
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                            .border(1.dp, Color(0xFFE0E0E0), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // 노이즈 제거 파형 애니메이션
+                        Canvas(
+                            modifier = Modifier.size(60.dp)
+                        ) {
+                            val centerY = size.height / 2
+                            val waveWidth = size.width
+
+                            // 노이즈가 있는 파형 (흐릿하게)
+                            val noisyPath = Path()
+                            noisyPath.moveTo(0f, centerY)
+
+                            for (x in 0..waveWidth.toInt() step 3) {
+                                val xRatio = x / waveWidth
+                                val mainWave = sin(xRatio * 6 * PI + wavePhase) * size.height * 0.15f
+                                val noise = sin(xRatio * 20 * PI + wavePhase * 3) * size.height * 0.08f * (1 - filterIntensity)
+                                val y = centerY + mainWave + noise
+                                noisyPath.lineTo(x.toFloat(), y.toFloat())
+                            }
+
+                            drawPath(
+                                path = noisyPath,
+                                color = Color.LightGray.copy(alpha = 0.6f),
+                                style = Stroke(width = 1.5f)
+                            )
+
+                            // 깨끗한 파형 (점점 선명하게)
+                            val cleanPath = Path()
+                            cleanPath.moveTo(0f, centerY)
+
+                            for (x in 0..waveWidth.toInt() step 3) {
+                                val xRatio = x / waveWidth
+                                val mainWave = sin(xRatio * 6 * PI + wavePhase) * size.height * 0.15f
+                                val y = centerY + mainWave
+                                cleanPath.lineTo(x.toFloat(), y.toFloat())
+                            }
+
+                            drawPath(
+                                path = cleanPath,
+                                color = Color(0xFFE9D364).copy(alpha = 0.3f + filterIntensity * 0.7f),
+                                style = Stroke(width = 2f + filterIntensity * 2f, cap = StrokeCap.Round)
+                            )
+                        }
+                    }
+
+                    // 진행률 텍스트
+                    Text(
+                        text = "${progressPercentage.toInt()}%",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF3F2E20),
+                        modifier = Modifier.offset(y = 50.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // 제목
+                Text(
+                    text = "노이즈 제거 처리 중",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF3F2E20)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 현재 처리 단계
+                Text(
+                    text = processingSteps[currentStep],
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFE9B44C)
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // 처리 단계 리스트
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    processingSteps.forEachIndexed { index, step ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 단계 상태 아이콘
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .background(
+                                        color = when {
+                                            index < currentStep -> Color(0xFFE9B44C)
+                                            index == currentStep -> Color(0xFFE9D364)
+                                            else -> Color(0xFFF0F0F0)
+                                        },
+                                        shape = CircleShape
+                                    )
+                                    .border(
+                                        width = if (index == currentStep) 2.dp else 0.dp,
+                                        color = Color(0xFFE9B44C),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when {
+                                    index < currentStep -> {
+                                        // 완료된 단계 - 체크 표시
+                                        Text(
+                                            text = "✓",
+                                            fontSize = 12.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    index == currentStep -> {
+                                        // 현재 처리 중 - 점 애니메이션
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .scale(pulseScale)
+                                                .background(Color.White, CircleShape)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // 단계 텍스트
+                            Text(
+                                text = step,
+                                fontSize = 13.sp,
+                                color = when {
+                                    index < currentStep -> Color(0xFF3F2E20)
+                                    index == currentStep -> Color(0xFF3F2E20)
+                                    else -> Color.Gray
+                                },
+                                fontWeight = if (index == currentStep) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // 설명 텍스트
+                Text(
+                    text = "배경 소음과 잡음을 제거하여\n더욱 깨끗한 음성으로 변환하고 있습니다",
+                    fontSize = 14.sp,
+                    color = Color(0xFF666666),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 예상 소요 시간
+                Text(
+                    text = "예상 소요 시간: 10-15초",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    fontStyle = FontStyle.Italic
+                )
             }
         }
     }

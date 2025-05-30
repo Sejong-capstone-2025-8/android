@@ -588,8 +588,13 @@ class MainActivity : ComponentActivity() {
         }
         */
     }
-
     private fun startStoryCreationWithFineTunedModel(navController: androidx.navigation.NavController) {
+        // 이미지와 테마 검증
+        if (capturedImageBitmap == null) {
+            Toast.makeText(this, "사진을 찍거나 선택해주세요", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         if (selectedTheme == null) {
             Toast.makeText(this, "테마를 선택해주세요", Toast.LENGTH_SHORT).show()
             return
@@ -599,30 +604,33 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch(Dispatchers.Default) {
             try {
+                val bitmap = capturedImageBitmap ?: throw IllegalStateException("이미지가 없습니다")
                 val theme = selectedTheme ?: throw IllegalStateException("테마가 선택되지 않았습니다")
 
-                // 파인튜닝 모델로 동화 생성 작업
+                // 이미지 최적화
+                val imageUtil = ImageUtil()
+                val optimizedBitmap = imageUtil.compressImage(bitmap)
+
                 withContext(Dispatchers.IO) {
-                    Log.d("MainActivity", "Starting story creation with fine-tuned model, theme: $theme")
-                    val storyId = storyCreationController.createStoryWithFineTunedModel(theme)
+                    Log.d("MainActivity", "Starting story creation with image analysis + fine-tuned model, theme: $theme")
+
+                    // 새로운 메서드 사용: 이미지 분석 + 파인튜닝 모델
+                    val storyId = storyCreationController.createStoryWithImageAnalysisAndFineTuning(optimizedBitmap, theme)
                     Log.d("MainActivity", "Story created successfully with ID: $storyId")
 
-                    // UI 작업은 Main 스레드에서 수행
                     withContext(Dispatchers.Main) {
                         isLoading = false
-                        // 생성된 동화 화면으로 네비게이션
                         navController.navigate(NavRoute.GeneratedStory.createRoute(storyId))
                     }
                 }
             } catch (e: Exception) {
-                // UI 작업은 Main 스레드에서 수행
                 withContext(Dispatchers.Main) {
                     isLoading = false
                     Log.d("MainActivity", "errorMessage 에 세팅될 메시지: ${e.javaClass.simpleName} / ${e.message}")
                     errorMessage = when (e) {
                         is StoryGenerationException -> e.message
                         is VoiceGenerationException -> e.message
-                        else -> "알 수 없는 오류가 생겼어요!!"
+                        else -> "파인튜닝 모델 동화 생성 중 오류가 발생했습니다: ${e.message}"
                     }
                 }
             }

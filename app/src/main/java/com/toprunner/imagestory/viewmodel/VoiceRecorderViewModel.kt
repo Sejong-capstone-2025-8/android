@@ -2,15 +2,10 @@ package com.toprunner.imagestory.viewmodel
 
 import android.annotation.SuppressLint
 import android.app.Application
-import android.content.Context
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.toprunner.imagestory.data.database.AppDatabase
-import com.toprunner.imagestory.data.entity.FairyTaleEntity
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.State
 import java.io.File
 
